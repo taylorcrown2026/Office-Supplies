@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Request Supplies • Office Supply</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <nav class="nav" aria-label="Primary">
+    <div class="inner">
+      <div class="brand">Concentra • Office Supply</div>
+      <div style="margin-left:auto; display:flex; gap:16px">
+        <a href="index.html">Home</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container section">
+    <div class="card pad" style="max-width:880px; margin:0 auto">
+      <h2 style="margin:0 0 6px">New Supply Request</h2>
+      <p class="muted small" style="margin:0 0 16px">Provide department, items, and a needed-by date at least 10 days from today.</p>
+      <form id="reqForm">
+        <div class="grid cols-2">
+          <div>
+            <label for="department">Department</label>
+            <select id="department" required>
+              <option value="" disabled selected>Select department</option>
+              <option>HR</option>
+              <option>Finance</option>
+              <option>IT</option>
+              <option>Operations</option>
+              <option>Sales</option>
+              <option>Marketing</option>
+              <option>Clinical</option>
+              <option>Administration</option>
+            </select>
+          </div>
+          <div>
+            <label for="neededBy">Needed By (≥ 10 days)</label>
+            <input type="date" id="neededBy" required min="2026-03-19" />
+            <div class="small muted" id="dateHelp">Earliest allowed date: 2026-03-19</div>
+          </div>
+        </div>
+        <label for="item">Item(s)</label>
+        <input id="item" placeholder="e.g., 12× gel pens, 3× letter notepads, 1× stapler" required />
+        <div class="form-actions">
+          <button class="btn primary" type="submit">Submit Request</button>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <script>
+    // Keep min date logic in JS as well
+    function toISODate(d){ return d.toISOString().slice(0,10); }
+    const neededBy = document.getElementById('neededBy');
+    const help = document.getElementById('dateHelp');
+    const min = new Date();
+    min.setHours(0,0,0,0);
+    min.setDate(min.getDate()+10);
+    neededBy.min = toISODate(min);
+    help.textContent = `Earliest allowed date: ${neededBy.min}`;
+
+    document.getElementById('reqForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const payload = {
+        department: document.getElementById('department').value,
+        item: document.getElementById('item').value,
+        date: document.getElementById('neededBy').value
+      };
+      const res = await fetch('/request', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+      });
+      if(res.ok){
+        alert('Request submitted');
+        e.target.reset();
+        neededBy.min = toISODate(min);
+        help.textContent = `Earliest allowed date: ${neededBy.min}`;
+      } else {
+        const msg = await res.text();
+        alert(msg||'There was a problem submitting your request.');
+      }
+    });
+  </script>
+</body>
+</html>
