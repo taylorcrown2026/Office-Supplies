@@ -13,21 +13,38 @@
     }catch(e){ return { authenticated:false, user:null }; }
   }
 
-  async function login(username, password){
-    const r = await fetch('/login', {
-      method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin',
-      body: JSON.stringify({ username, password })
-    });
-    if(!r.ok){
-      // Make errors easier to diagnose in UI
-      const text = await r.text().catch(()=>"");
-      throw new Error(`Login failed (${r.status}) ${text && text.length < 200 ? text : ''}`.trim());
-    }
-    const j = await r.json();
-    state.authenticated = true; state.user = j.user;
-    refreshAuthUI();
-    return j.user;
+async function login(username, password){
+  const r = await fetch('/login', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    credentials:'same-origin',
+    body: JSON.stringify({ username, password })
+  });
+
+  // Read text first (works for JSON and non-JSON). No double-read of body.
+  const raw = await r.text();
+  let data = null;
+  try { data = raw ? JSON.parse(raw) : null; } catch { /* not JSON */ }
+
+  if (!r.ok) {
+    // Server returned an error code (401/404/500, etc.). Show body snippet if present.
+    const snippet = raw && raw.length < 300 ? ` - ${raw}` : '';
+    throw new Error(`Login failed (${r.status})${snippet}`);
   }
+
+  if (!data || typeof data !== 'object' || !data.user) {
+    // Server replied 200 but with empty or unexpected body
+    const ct = r.headers.get('content-type') || '';
+    const msg = raw ? `Unexpected response (content-type: ${ct}): ${raw.slice(0,200)}` 
+                    : `Empty 200/204 response from /login (content-type: ${ct})`;
+    throw new Error(msg);
+  }
+
+  state.authenticated = true;
+  state.user = data.user;
+  refreshAuthUI();
+  return data.user;
+}
 
   async function logout(redirectToLogin=true){
     try{ await fetch('/logout', { method:'POST', credentials:'same-origin' }); }catch(e){}
