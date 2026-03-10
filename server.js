@@ -145,20 +145,23 @@ app.post('/upload', requireAuth, upload.single('file'), (req, res) => {
 });
 
 /* =========================
+   Diagnostics (dev)
+========================= */
+app.get('/_demo', (req, res) => {
+  res.json({ expectedUsers: USERS.map(u => u.username), env: { NODE_ENV, SESSION_IDLE_MS: SESSION_IDLE_MS } });
+});
+app.get('/whoami', (req, res) => { res.json({ user: req.session.user || null }); });
+app.post('/echo-login', (req, res) => {
+  res.json({ received: { username: req.body?.username ?? null, passwordLength: typeof req.body?.password === 'string' ? req.body.password.length : null } });
+});
+
+/* =========================
    Static hosting
 ========================= */
 const publicDir = path.join(__dirname, 'public');
 app.use('/uploads', express.static(uploadDir, { dotfiles: 'deny', maxAge: '7d' }));
 app.use(express.static(publicDir));
 app.get('/', (req, res) => res.sendFile(path.join(publicDir, 'index.html')));
-
-/* =========================
-   Dev info endpoints (optional)
-========================= */
-app.get('/_demo', (req, res) => {
-  res.json({ expectedUsers: USERS.map(u => u.username), env: { NODE_ENV, SESSION_IDLE_MS: SESSION_IDLE_MS } });
-});
-app.get('/whoami', (req, res) => { res.json({ user: req.session.user || null }); });
 
 /* =========================
    Start (HTTP/HTTPS)
@@ -170,15 +173,15 @@ function start() {
     https.createServer({ key, cert }, app).listen(PORT, () => {
       console.log(`HTTPS on https://localhost:${PORT} (${NODE_ENV})`);
       console.log('Demo credentials available:');
-      console.log('  • %s / %s', DEMO_USER_1.username, DEMO_PASS_1);
-      console.log('  • %s / %s', DEMO_USER_2.username, DEMO_PASS_2);
+      console.log('  • hradmin / HR!2026-Secure');
+      console.log('  • admin   / Admin@123!');
     });
   } else {
     http.createServer(app).listen(PORT, () => {
       console.log(`HTTP on http://localhost:${PORT} (${NODE_ENV})`);
       console.log('Demo credentials available:');
-      console.log('  • %s / %s', DEMO_USER_1.username, DEMO_PASS_1);
-      console.log('  • %s / %s', DEMO_USER_2.username, DEMO_PASS_2);
+      console.log('  • hradmin / HR!2026-Secure');
+      console.log('  • admin   / Admin@123!');
       console.log('Tip: provide SSL_KEY and SSL_CERT for HTTPS in dev.');
     });
   }

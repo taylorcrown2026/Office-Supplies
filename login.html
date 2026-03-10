@@ -24,7 +24,8 @@
     .success{color:#065f46;font-size:13px;margin-top:8px}
     footer{padding:12px 20px;background:#f8fafc;border-top:1px solid #eef2f7;font-size:12px;color:#475569}
   </style>
-  <script defer src="auth.js"></script>
+  <!-- Use absolute path to avoid base-path issues on some hosts -->
+  <script defer src="/auth.js"></script>
   <script>
     async function handleLogin(e){
       e.preventDefault();
@@ -40,7 +41,9 @@
         const returnTo = params.get('returnTo') || 'index.html';
         success.textContent='Login successful. Redirecting…';
         setTimeout(()=> location.href = returnTo, 400);
-      }catch(err){ error.textContent='Invalid credentials.'; }
+      }catch(err){
+        error.textContent = (err && err.message) ? err.message : 'Invalid credentials.';
+      }
     }
     document.addEventListener('DOMContentLoaded', async ()=>{
       document.getElementById('loginForm').addEventListener('submit', handleLogin);

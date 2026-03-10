@@ -18,7 +18,11 @@
       method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin',
       body: JSON.stringify({ username, password })
     });
-    if(!r.ok) throw new Error('Invalid credentials');
+    if(!r.ok){
+      // Make errors easier to diagnose in UI
+      const text = await r.text().catch(()=>"");
+      throw new Error(`Login failed (${r.status}) ${text && text.length < 200 ? text : ''}`.trim());
+    }
     const j = await r.json();
     state.authenticated = true; state.user = j.user;
     refreshAuthUI();
