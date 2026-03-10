@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — HR Hub</title>
+  <style>
+    :root{ --ink:#0F172A; --muted:#475569; --bg:#F8FAFC; --white:#fff; --indigo:#4f46e5; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;display:grid;place-items:center;padding:24px}
+    .card{width:100%;max-width:420px;background:var(--white);border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 20px 40px rgba(2,6,23,.06);overflow:hidden}
+    header{background:linear-gradient(120deg,#7c3aed,#4f46e5);color:#fff;padding:18px 20px}
+    header h1{font-size:20px;font-weight:800}
+    main{padding:22px}
+    .hint{font-size:13px;color:var(--muted);margin-bottom:12px}
+    label{display:block;font-size:14px;font-weight:700;margin:10px 0 6px}
+    input{width:100%;padding:12px 14px;border:1px solid #e5e7eb;border-radius:10px;font-size:15px}
+    input:focus{outline:2px solid rgba(79,70,229,.35);border-color:#c7d2fe}
+    .row{display:flex;gap:10px;align-items:center;margin-top:10px}
+    button{appearance:none;border:0;border-radius:12px;background:var(--ink);color:#fff;padding:12px 16px;font-weight:800;cursor:pointer}
+    button[disabled]{opacity:.6;cursor:not-allowed}
+    .muted{font-size:13px;color:var(--muted);}
+    .error{color:#b91c1c;font-size:13px;margin-top:8px}
+    .success{color:#065f46;font-size:13px;margin-top:8px}
+    footer{padding:12px 20px;background:#f8fafc;border-top:1px solid #eef2f7;font-size:12px;color:#475569}
+    .row-right{display:flex;gap:12px;justify-content:flex-end}
+  </style>
+  <script defer src="auth.js"></script>
+  <script>
+    // Client-side hashing demo (illustrative only)
+    async function sha256Hex(str){
+      const enc = new TextEncoder().encode(str);
+      const digest = await crypto.subtle.digest('SHA-256', enc);
+      return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    }
+
+    async function handleLogin(e){
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const error = document.getElementById('error');
+      const success = document.getElementById('success');
+      error.textContent=''; success.textContent='';
+
+      if(!email || !password){ error.textContent='Email and password are required.'; return; }
+      // Illustrative: hash before sending. In a real app you would send over HTTPS to the server and validate there.
+      const clientHash = await sha256Hex(password);
+
+      // Demo policy: accept any non-empty credentials (do NOT use in production)
+      // You could replace this block with a fetch('/api/login', { method:'POST', body: JSON.stringify({email, passwordHash: clientHash}) })
+      if(clientHash){
+        window.Auth && window.Auth.login(email);
+        const params = new URLSearchParams(location.search);
+        const returnTo = params.get('returnTo') || 'index.auth.html';
+        success.textContent='Login successful. Redirecting…';
+        setTimeout(()=> location.href = returnTo, 600);
+      }else{
+        error.textContent='Invalid credentials.';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', ()=>{
+      const form = document.getElementById('loginForm');
+      form.addEventListener('submit', handleLogin);
+      // If already authenticated, go where they came from
+      if(window.Auth && window.Auth.isAuthenticated()){
+        const params = new URLSearchParams(location.search);
+        const returnTo = params.get('returnTo') || 'index.auth.html';
+        location.replace(returnTo);
+      }
+    });
+  </script>
+</head>
+<body>
+  <div class="card" role="dialog" aria-labelledby="title" aria-describedby="desc">
+    <header>
+      <h1 id="title">Sign in to HR Hub</h1>
+    </header>
+    <main>
+      <p id="desc" class="hint">Your credentials are transmitted securely only in production over HTTPS. Passwords must be validated and hashed on the server. This page includes a client-side hash for demonstration.</p>
+      <form id="loginForm" autocomplete="off" novalidate>
+        <label for="email">Work email</label>
+        <input id="email" name="email" type="email" inputmode="email" placeholder="you@company.com" required />
+
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" placeholder="••••••••" required />
+
+        <div class="row" style="margin-top:16px">
+          <button type="submit" id="submitBtn">Sign in</button>
+          <a class="muted" href="index.auth.html" data-public>Cancel</a>
+        </div>
+        <div id="error" class="error" role="alert" aria-live="polite"></div>
+        <div id="success" class="success" aria-live="polite"></div>
+      </form>
+    </main>
+    <footer>
+      <strong>SOC 2 reminder:</strong> enforce HTTPS, use server-side password hashing (Argon2id/bcrypt/scrypt), MFA, rate limiting, audit logging, and short-lived server sessions with HttpOnly + Secure cookies.
+    </footer>
+  </div>
+</body>
+</html>
