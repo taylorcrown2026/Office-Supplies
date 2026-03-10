@@ -29,13 +29,11 @@ const {
 /* =========================
    Security & middlewares
 ========================= */
-app.use(helmet({
-  crossOriginEmbedderPolicy: false, // static assets only; relax for simplicity
-}));
+app.use(helmet({ crossOriginEmbedderPolicy: false }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Sessions (MemoryStore for simplicity; use Redis for production)
+// Sessions (MemoryStore for simplicity; use Redis in production)
 app.use(session({
   name: 'sid',
   secret: SESSION_SECRET,
@@ -67,23 +65,18 @@ app.use((req, res, next) => {
    Demo users (bcrypt)
    - Accept BOTH 'hradmin' and 'admin'
 ========================= */
-
-// hradmin / HR!2026-Secure
 const DEMO_USER_1 = { id: 'u1', username: 'hradmin', role: 'admin' };
 const DEMO_PASS_1 = 'HR!2026-Secure';
 const DEMO_HASH_1 = bcrypt.hashSync(DEMO_PASS_1, 12);
 
-// admin / Admin@123!
 const DEMO_USER_2 = { id: 'u2', username: 'admin', role: 'admin' };
 const DEMO_PASS_2 = 'Admin@123!';
 const DEMO_HASH_2 = bcrypt.hashSync(DEMO_PASS_2, 12);
 
-// Simple in-memory "user store"
 const USERS = [
   { ...DEMO_USER_1, passwordHash: DEMO_HASH_1 },
   { ...DEMO_USER_2, passwordHash: DEMO_HASH_2 },
 ];
-
 function findUser(username) {
   const u = String(username || '').toLowerCase();
   return USERS.find(x => x.username.toLowerCase() === u) || null;
@@ -100,6 +93,7 @@ app.get('/session', (req, res) => {
 app.post('/login', async (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) {
+    if (NODE_ENV !== 'production') console.warn('Login missing credentials');
     return res.status(400).json({ ok: false, error: 'missing_credentials' });
   }
   const user = findUser(username);
@@ -121,7 +115,6 @@ app.post('/logout', (req, res) => {
   req.session.destroy(() => res.json({ ok: true }));
 });
 
-// Gate for any server endpoints that need auth
 function requireAuth(req, res, next) {
   if (!req.session.user) {
     if (req.accepts('json')) return res.status(401).json({ ok: false, error: 'unauthorized' });
@@ -131,7 +124,7 @@ function requireAuth(req, res, next) {
 }
 
 /* =========================
-   Uploads (for invoice.html)
+   Uploads (for invoice flow)
 ========================= */
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -144,21 +137,11 @@ const storage = multer.diskStorage({
     cb(null, uniq + '-' + safeBase);
   }
 });
-const upload = multer({
-  storage,
-  limits: { fileSize: 15 * 1024 * 1024 } // 15 MB
-});
+const upload = multer({ storage, limits: { fileSize: 15 * 1024 * 1024 } });
 
 app.post('/upload', requireAuth, upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ ok: false, error: 'no_file' });
-  res.json({
-    ok: true,
-    file: {
-      name: req.file.originalname,
-      size: req.file.size,
-      url: '/uploads/' + req.file.filename
-    }
-  });
+  res.json({ ok: true, file: { name: req.file.originalname, size: req.file.size, url: '/uploads/' + req.file.filename } });
 });
 
 /* =========================
@@ -170,15 +153,12 @@ app.use(express.static(publicDir));
 app.get('/', (req, res) => res.sendFile(path.join(publicDir, 'index.html')));
 
 /* =========================
-   Dev info endpoint (optional)
-   - Helps confirm which server is running
+   Dev info endpoints (optional)
 ========================= */
 app.get('/_demo', (req, res) => {
-  res.json({
-    expectedUsers: USERS.map(u => u.username),
-    env: { NODE_ENV, SESSION_IDLE_MS: SESSION_IDLE_MS }
-  });
+  res.json({ expectedUsers: USERS.map(u => u.username), env: { NODE_ENV, SESSION_IDLE_MS: SESSION_IDLE_MS } });
 });
+app.get('/whoami', (req, res) => { res.json({ user: req.session.user || null }); });
 
 /* =========================
    Start (HTTP/HTTPS)
