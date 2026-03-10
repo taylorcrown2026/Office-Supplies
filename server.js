@@ -1,6 +1,5 @@
-// server.js — working auth server (bcrypt + sessions + uploads), accepts hradmin & admin
+// server.js — v3 with BASE_PATH support, bcrypt sessions, uploads
 'use strict';
-
 require('dotenv').config();
 const fs = require('fs');
 const http = require('http');
@@ -14,176 +13,102 @@ const multer = require('multer');
 
 const app = express();
 
-/* =========================
-   Config (env + defaults)
-========================= */
 const {
   NODE_ENV = 'development',
   PORT = 3000,
   SESSION_SECRET = 'dev_only_change_me',
-  SESSION_IDLE_MS = String(10 * 60 * 1000), // 10 minutes
+  SESSION_IDLE_MS = String(10 * 60 * 1000),
   SSL_KEY,
   SSL_CERT,
+  BASE_PATH: RAW_BASE = '/',
 } = process.env;
 
-/* =========================
-   Security & middlewares
-========================= */
-app.use(helmet({ crossOriginEmbedderPolicy: false }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Normalize BASE_PATH ("/hrhub" or "")
+let BASE_PATH = String(RAW_BASE || '/');
+if (!BASE_PATH.startsWith('/')) BASE_PATH = '/' + BASE_PATH;
+if (BASE_PATH !== '/' && BASE_PATH.endsWith('/')) BASE_PATH = BASE_PATH.replace(/\/+$/, '');
 
-// Sessions (MemoryStore for simplicity; use Redis in production)
+app.use(helmet({ crossOriginEmbedderPolicy:false }));
+app.use(express.json());
+app.use(express.urlencoded({ extended:true }));
+
 app.use(session({
-  name: 'sid',
-  secret: SESSION_SECRET,
-  resave: false,
-  rolling: true,                 // refresh cookie on each request
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    secure: NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: Number(SESSION_IDLE_MS),
-  }
+  name:'sid', secret:SESSION_SECRET, resave:false, rolling:true, saveUninitialized:false,
+  cookie:{ httpOnly:true, secure: NODE_ENV==='production', sameSite:'lax', maxAge:Number(SESSION_IDLE_MS) }
 }));
 
-// Enforce server-side idle timeout
-app.use((req, res, next) => {
-  if (req.session?.user) {
-    const now = Date.now();
-    const last = req.session.lastActivity || 0;
-    if (now - last > Number(SESSION_IDLE_MS)) {
-      return req.session.destroy(() => next());
-    }
-    req.session.lastActivity = now;
-  }
-  next();
-});
+app.use((req,res,next)=>{ if(req.session?.user){ const now=Date.now(); const last=req.session.lastActivity||0; if(now-last>Number(SESSION_IDLE_MS)) return req.session.destroy(()=>next()); req.session.lastActivity=now; } next(); });
 
-/* =========================
-   Demo users (bcrypt)
-   - Accept BOTH 'hradmin' and 'admin'
-========================= */
-const DEMO_USER_1 = { id: 'u1', username: 'hradmin', role: 'admin' };
+// Demo users (two accounts)
+const DEMO_USER_1 = { id:'u1', username:'hradmin', role:'admin' };
 const DEMO_PASS_1 = 'HR!2026-Secure';
 const DEMO_HASH_1 = bcrypt.hashSync(DEMO_PASS_1, 12);
-
-const DEMO_USER_2 = { id: 'u2', username: 'admin', role: 'admin' };
+const DEMO_USER_2 = { id:'u2', username:'admin', role:'admin' };
 const DEMO_PASS_2 = 'Admin@123!';
 const DEMO_HASH_2 = bcrypt.hashSync(DEMO_PASS_2, 12);
+const USERS = [ { ...DEMO_USER_1, passwordHash:DEMO_HASH_1 }, { ...DEMO_USER_2, passwordHash:DEMO_HASH_2 } ];
+const findUser = (u)=> USERS.find(x=> x.username.toLowerCase() === String(u||'').toLowerCase()) || null;
 
-const USERS = [
-  { ...DEMO_USER_1, passwordHash: DEMO_HASH_1 },
-  { ...DEMO_USER_2, passwordHash: DEMO_HASH_2 },
-];
-function findUser(username) {
-  const u = String(username || '').toLowerCase();
-  return USERS.find(x => x.username.toLowerCase() === u) || null;
-}
+// Build a router mounted at BASE_PATH
+const r = express.Router();
 
-/* =========================
-   Auth APIs
-========================= */
-app.get('/session', (req, res) => {
-  const user = req.session.user || null;
-  res.json({ authenticated: !!user, user });
-});
+r.get('/session', (req,res)=>{ const user=req.session.user||null; res.json({ authenticated:!!user, user }); });
 
-app.post('/login', async (req, res) => {
+r.post('/login', async (req,res)=>{
   const { username, password } = req.body || {};
-  if (!username || !password) {
-    if (NODE_ENV !== 'production') console.warn('Login missing credentials');
-    return res.status(400).json({ ok: false, error: 'missing_credentials' });
-  }
+  if(!username || !password) return res.status(400).json({ ok:false, error:'missing_credentials' });
   const user = findUser(username);
-  if (!user) {
-    if (NODE_ENV !== 'production') console.warn('Login failed (no such user):', username);
-    return res.status(401).json({ ok: false, error: 'invalid_credentials' });
-  }
+  if(!user) return res.status(401).json({ ok:false, error:'invalid_credentials' });
   const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) {
-    if (NODE_ENV !== 'production') console.warn('Login failed (bad password):', username);
-    return res.status(401).json({ ok: false, error: 'invalid_credentials' });
-  }
-  req.session.user = { id: user.id, username: user.username, role: user.role };
+  if(!ok) return res.status(401).json({ ok:false, error:'invalid_credentials' });
+  req.session.user = { id:user.id, username:user.username, role:user.role };
   req.session.lastActivity = Date.now();
-  return res.json({ ok: true, user: req.session.user });
+  res.json({ ok:true, user:req.session.user });
 });
 
-app.post('/logout', (req, res) => {
-  req.session.destroy(() => res.json({ ok: true }));
+r.post('/logout', (req,res)=> req.session.destroy(()=>res.json({ ok:true })) );
+
+function requireAuth(req,res,next){ if(!req.session.user) return res.redirect(`${BASE_PATH}/login.html?returnTo=`+encodeURIComponent(req.originalUrl)); next(); }
+
+// Uploads
+const uploadDir = path.join(__dirname,'uploads');
+if(!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir,{recursive:true});
+const storage = multer.diskStorage({ destination:(req,file,cb)=>cb(null,uploadDir), filename:(req,file,cb)=>{ const safe=path.basename(file.originalname).replace(/[^a-z0-9_.-]+/gi,'_'); const uniq=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8); cb(null, `${uniq}-${safe}`);} });
+const upload = multer({ storage, limits:{ fileSize:15*1024*1024 } });
+
+r.post('/upload', requireAuth, upload.single('file'), (req,res)=>{ if(!req.file) return res.status(400).json({ ok:false, error:'no_file' }); res.json({ ok:true, file:{ name:req.file.originalname, size:req.file.size, url:`${BASE_PATH}/uploads/${req.file.filename}` } }); });
+
+// Dev helpers
+r.get('/_demo', (req,res)=> res.json({ basePath: BASE_PATH, expectedUsers: USERS.map(u=>u.username), env:{ NODE_ENV, SESSION_IDLE_MS } }) );
+r.get('/whoami', (req,res)=> res.json({ user:req.session.user||null }) );
+r.post('/echo-login', (req,res)=> res.json({ received:{ username:req.body?.username ?? null, passwordLength: typeof req.body?.password==='string'? req.body.password.length : null } }) );
+
+// Static files under base path
+const publicDir = path.join(__dirname,'public');
+app.use(`${BASE_PATH}/uploads`, express.static(uploadDir, { dotfiles:'deny', maxAge:'7d' }));
+app.use(BASE_PATH, r);
+app.use(BASE_PATH, express.static(publicDir));
+
+// Tiny config JS the client can read to know BASE_PATH
+app.get(`${BASE_PATH}/config.js`, (req,res)=>{
+  res.type('application/javascript').send(`window.__BASE_PATH__=${JSON.stringify(BASE_PATH)};`);
 });
 
-function requireAuth(req, res, next) {
-  if (!req.session.user) {
-    if (req.accepts('json')) return res.status(401).json({ ok: false, error: 'unauthorized' });
-    return res.redirect('/login.html?returnTo=' + encodeURIComponent(req.originalUrl));
-  }
-  next();
-}
+app.get(BASE_PATH === '/' ? '/' : `${BASE_PATH}/`, (req,res)=> res.sendFile(path.join(publicDir,'index.html')) );
 
-/* =========================
-   Uploads (for invoice flow)
-========================= */
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => {
-    const safeBase = path.basename(file.originalname).replace(/[^a-z0-9_.-]+/gi, '_');
-    const uniq = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
-    cb(null, uniq + '-' + safeBase);
-  }
-});
-const upload = multer({ storage, limits: { fileSize: 15 * 1024 * 1024 } });
-
-app.post('/upload', requireAuth, upload.single('file'), (req, res) => {
-  if (!req.file) return res.status(400).json({ ok: false, error: 'no_file' });
-  res.json({ ok: true, file: { name: req.file.originalname, size: req.file.size, url: '/uploads/' + req.file.filename } });
-});
-
-/* =========================
-   Diagnostics (dev)
-========================= */
-app.get('/_demo', (req, res) => {
-  res.json({ expectedUsers: USERS.map(u => u.username), env: { NODE_ENV, SESSION_IDLE_MS: SESSION_IDLE_MS } });
-});
-app.get('/whoami', (req, res) => { res.json({ user: req.session.user || null }); });
-app.post('/echo-login', (req, res) => {
-  res.json({ received: { username: req.body?.username ?? null, passwordLength: typeof req.body?.password === 'string' ? req.body.password.length : null } });
-});
-
-/* =========================
-   Static hosting
-========================= */
-const publicDir = path.join(__dirname, 'public');
-app.use('/uploads', express.static(uploadDir, { dotfiles: 'deny', maxAge: '7d' }));
-app.use(express.static(publicDir));
-app.get('/', (req, res) => res.sendFile(path.join(publicDir, 'index.html')));
-
-/* =========================
-   Start (HTTP/HTTPS)
-========================= */
-function start() {
-  if (SSL_KEY && SSL_CERT && fs.existsSync(SSL_KEY) && fs.existsSync(SSL_CERT)) {
-    const key = fs.readFileSync(SSL_KEY);
-    const cert = fs.readFileSync(SSL_CERT);
-    https.createServer({ key, cert }, app).listen(PORT, () => {
-      console.log(`HTTPS on https://localhost:${PORT} (${NODE_ENV})`);
-      console.log('Demo credentials available:');
-      console.log('  • hradmin / HR!2026-Secure');
-      console.log('  • admin   / Admin@123!');
-    });
-  } else {
-    http.createServer(app).listen(PORT, () => {
-      console.log(`HTTP on http://localhost:${PORT} (${NODE_ENV})`);
-      console.log('Demo credentials available:');
-      console.log('  • hradmin / HR!2026-Secure');
-      console.log('  • admin   / Admin@123!');
-      console.log('Tip: provide SSL_KEY and SSL_CERT for HTTPS in dev.');
-    });
+function start(){
+  const startMsg = ()=>{
+    console.log(`${SSL_KEY&&SSL_CERT?'HTTPS':'HTTP'} on ${SSL_KEY&&SSL_CERT?`https`:`http`}://localhost:${PORT}${BASE_PATH==='/'?'':BASE_PATH} (${NODE_ENV})`);
+    console.log('Base path:', BASE_PATH);
+    console.log('Demo credentials available:');
+    console.log('  • %s / %s', DEMO_USER_1.username, DEMO_PASS_1);
+    console.log('  • %s / %s', DEMO_USER_2.username, DEMO_PASS_2);
+  };
+  if(SSL_KEY && SSL_CERT && fs.existsSync(SSL_KEY) && fs.existsSync(SSL_CERT)){
+    const key=fs.readFileSync(SSL_KEY); const cert=fs.readFileSync(SSL_CERT);
+    https.createServer({key,cert}, app).listen(PORT, startMsg);
+  }else{
+    http.createServer(app).listen(PORT, startMsg);
   }
 }
 start();

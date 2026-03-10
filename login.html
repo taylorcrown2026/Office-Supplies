@@ -24,8 +24,10 @@
     .success{color:#065f46;font-size:13px;margin-top:8px}
     footer{padding:12px 20px;background:#f8fafc;border-top:1px solid #eef2f7;font-size:12px;color:#475569}
   </style>
-  <!-- Use absolute path to avoid base-path issues on some hosts -->
-  <script defer src="/auth.js"></script>
+  <!-- Load dynamic base config first (relative so it works under BASE_PATH) -->
+  <script defer src="config.js"></script>
+  <!-- Then load auth helpers (also relative) -->
+  <script defer src="auth.js"></script>
   <script>
     async function handleLogin(e){
       e.preventDefault();
@@ -42,7 +44,7 @@
         success.textContent='Login successful. Redirecting…';
         setTimeout(()=> location.href = returnTo, 400);
       }catch(err){
-        error.textContent = (err && err.message) ? err.message : 'Invalid credentials.';
+        error.textContent = (err && err.message) ? err.message : 'Login failed.';
       }
     }
     document.addEventListener('DOMContentLoaded', async ()=>{
