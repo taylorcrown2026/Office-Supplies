@@ -23,78 +23,55 @@
     .error{color:#b91c1c;font-size:13px;margin-top:8px}
     .success{color:#065f46;font-size:13px;margin-top:8px}
     footer{padding:12px 20px;background:#f8fafc;border-top:1px solid #eef2f7;font-size:12px;color:#475569}
-    .row-right{display:flex;gap:12px;justify-content:flex-end}
   </style>
   <script defer src="auth.js"></script>
   <script>
-    // Client-side hashing demo (illustrative only)
-    async function sha256Hex(str){
-      const enc = new TextEncoder().encode(str);
-      const digest = await crypto.subtle.digest('SHA-256', enc);
-      return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
-    }
-
     async function handleLogin(e){
       e.preventDefault();
-      const email = document.getElementById('email').value.trim();
+      const username = document.getElementById('username').value.trim();
       const password = document.getElementById('password').value;
       const error = document.getElementById('error');
       const success = document.getElementById('success');
       error.textContent=''; success.textContent='';
-
-      if(!email || !password){ error.textContent='Email and password are required.'; return; }
-      // Illustrative: hash before sending. In a real app you would send over HTTPS to the server and validate there.
-      const clientHash = await sha256Hex(password);
-
-      // Demo policy: accept any non-empty credentials (do NOT use in production)
-      // You could replace this block with a fetch('/api/login', { method:'POST', body: JSON.stringify({email, passwordHash: clientHash}) })
-      if(clientHash){
-        window.Auth && window.Auth.login(email);
+      if(!username || !password){ error.textContent='Username and password are required.'; return; }
+      try{
+        await Auth.login(username, password);
         const params = new URLSearchParams(location.search);
-        const returnTo = params.get('returnTo') || 'index.auth.html';
+        const returnTo = params.get('returnTo') || 'index.html';
         success.textContent='Login successful. Redirecting…';
-        setTimeout(()=> location.href = returnTo, 600);
-      }else{
-        error.textContent='Invalid credentials.';
-      }
+        setTimeout(()=> location.href = returnTo, 400);
+      }catch(err){ error.textContent='Invalid credentials.'; }
     }
-
-    document.addEventListener('DOMContentLoaded', ()=>{
-      const form = document.getElementById('loginForm');
-      form.addEventListener('submit', handleLogin);
-      // If already authenticated, go where they came from
-      if(window.Auth && window.Auth.isAuthenticated()){
-        const params = new URLSearchParams(location.search);
-        const returnTo = params.get('returnTo') || 'index.auth.html';
-        location.replace(returnTo);
-      }
+    document.addEventListener('DOMContentLoaded', async ()=>{
+      document.getElementById('loginForm').addEventListener('submit', handleLogin);
+      const params = new URLSearchParams(location.search);
+      const loggedOut = params.get('loggedOut')==='1';
+      const s = await Auth.session();
+      if(s.authenticated && !loggedOut){ location.replace(params.get('returnTo')||'index.html'); }
     });
   </script>
 </head>
 <body>
   <div class="card" role="dialog" aria-labelledby="title" aria-describedby="desc">
-    <header>
-      <h1 id="title">Sign in to HR Hub</h1>
-    </header>
+    <header><h1 id="title">Sign in to HR Hub</h1></header>
     <main>
-      <p id="desc" class="hint">Your credentials are transmitted securely only in production over HTTPS. Passwords must be validated and hashed on the server. This page includes a client-side hash for demonstration.</p>
+      <p id="desc" class="hint">Passwords are <strong>hashed server‑side with bcrypt</strong> and sessions are stored in an HTTP‑only cookie. Use HTTPS in production for encryption in transit.</p>
       <form id="loginForm" autocomplete="off" novalidate>
-        <label for="email">Work email</label>
-        <input id="email" name="email" type="email" inputmode="email" placeholder="you@company.com" required />
-
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" placeholder="hradmin" required />
         <label for="password">Password</label>
         <input id="password" name="password" type="password" placeholder="••••••••" required />
-
         <div class="row" style="margin-top:16px">
           <button type="submit" id="submitBtn">Sign in</button>
-          <a class="muted" href="index.auth.html" data-public>Cancel</a>
+          <a class="muted" href="index.html" data-public>Cancel</a>
         </div>
         <div id="error" class="error" role="alert" aria-live="polite"></div>
         <div id="success" class="success" aria-live="polite"></div>
       </form>
+      <p class="hint" style="margin-top:10px">Demo credentials → <code>hradmin</code> / <code>HR!2026-Secure</code></p>
     </main>
     <footer>
-      <strong>SOC 2 reminder:</strong> enforce HTTPS, use server-side password hashing (Argon2id/bcrypt/scrypt), MFA, rate limiting, audit logging, and short-lived server sessions with HttpOnly + Secure cookies.
+      <strong>SOC2 reminder:</strong> enforce HTTPS, server-side hashing (bcrypt/Argon2id), MFA, rate limiting, audit logging, and short‑lived server sessions with HttpOnly + Secure cookies.
     </footer>
   </div>
 </body>
