@@ -1,7 +1,6 @@
-// server.js — FIXED VERSION (Render Compatible)
+// server.js — updated with JSON storage and admin APIs
 "use strict";
 require("dotenv").config();
-
 const fs = require("fs");
 const path = require("path");
 const express = require("express");
@@ -9,7 +8,6 @@ const helmet = require("helmet");
 const session = require("express-session");
 const bcrypt = require("bcrypt");
 const multer = require("multer");
-
 const app = express();
 
 // -------- ENV --------
@@ -24,10 +22,9 @@ const {
 // -------- BASE PATH NORMALIZE --------
 let BASE_PATH = RAW_BASE || "/";
 if (!BASE_PATH.startsWith("/")) BASE_PATH = "/" + BASE_PATH;
-if (BASE_PATH !== "/" && BASE_PATH.endsWith("/"))
-  BASE_PATH = BASE_PATH.slice(0, -1);
+if (BASE_PATH !== "/" && BASE_PATH.endsWith("/")) BASE_PATH = BASE_PATH.slice(0, -1);
 
-// -------- REQUIRED ON RENDER --------
+// -------- RENDER/PROXY --------
 app.set("trust proxy", 1);
 
 // -------- SECURITY --------
@@ -36,7 +33,6 @@ app.use(
     crossOriginEmbedderPolicy: false
   })
 );
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -56,7 +52,6 @@ app.use(
     }
   })
 );
-
 app.use((req, res, next) => {
   if (req.session?.user) {
     const now = Date.now();
@@ -84,10 +79,7 @@ const USERS = [
     passwordHash: bcrypt.hashSync("Admin@123!", 12)
   }
 ];
-
-const findUser = (u) =>
-  USERS.find((x) => x.username.toLowerCase() === String(u).toLowerCase()) ||
-  null;
+const findUser = (u) => USERS.find((x) => x.username.toLowerCase() === String(u).toLowerCase()) || null;
 
 // -------- ROUTER --------
 const r = express.Router();
@@ -101,60 +93,147 @@ r.get("/session", (req, res) => {
 
 r.post("/login", async (req, res) => {
   const { username, password } = req.body || {};
-
-  if (!username || !password)
-    return res.status(400).json({ ok: false, error: "missing_credentials" });
-
+  if (!username || !password) return res.status(400).json({ ok: false, error: "missing_credentials" });
   const user = findUser(username);
-  if (!user)
-    return res.status(401).json({ ok: false, error: "invalid_credentials" });
-
+  if (!user) return res.status(401).json({ ok: false, error: "invalid_credentials" });
   const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid)
-    return res.status(401).json({ ok: false, error: "invalid_credentials" });
-
+  if (!valid) return res.status(401).json({ ok: false, error: "invalid_credentials" });
   req.session.user = { id: user.id, username: user.username, role: user.role };
   req.session.lastActivity = Date.now();
-
   return res.json({ ok: true, user: req.session.user });
 });
 
-r.post("/logout", (req, res) =>
-  req.session.destroy(() => res.json({ ok: true }))
-);
+r.post("/logout", (req, res) => req.session.destroy(() => res.json({ ok: true })));
 
 // -------- UPLOADS --------
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
 const upload = multer({ dest: uploadDir });
+
 r.post("/upload", upload.single("file"), (req, res) => {
   if (!req.file) return res.json({ ok: false, error: "no_file" });
-
-  res.json({
-    ok: true,
-    file: {
-      name: req.file.originalname,
-      size: req.file.size
-    }
-  });
+  // We do not expose a public download URL (per requirements). Store name + size only.
+  res.json({ ok: true, file: { name: req.file.originalname, size: req.file.size } });
 });
 
-// -------- IMPORTANT: ROUTER FIRST --------
+// -------- DATA STORAGE (JSON) --------
+const DATA_DIR = path.join(__dirname, "data");
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+const INVOICE_DB = path.join(DATA_DIR, "invoices.json");
+const SUPPLY_DB = path.join(DATA_DIR, "supplies.json");
+
+function loadDB(file) {
+  try {
+    if (!fs.existsSync(file)) return [];
+    return JSON.parse(fs.readFileSync(file, "utf-8"));
+  } catch (e) {
+    return [];
+  }
+}
+
+function writeJSONAtomic(file, data) {
+  const tmp = file + ".tmp";
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+  fs.renameSync(tmp, file);
+}
+
+function saveDB(file, data) {
+  // ensure array
+  if (!Array.isArray(data)) data = [];
+  writeJSONAtomic(file, data);
+}
+
+function requireAdmin(req, res, next) {
+  if (!req.session.user || req.session.user.role !== "admin") {
+    return res.status(403).json({ error: "admin_only" });
+  }
+  next();
+}
+
+// --- PUBLIC API to record submissions ---
+// Invoices
+r.post("/api/invoices", (req, res) => {
+  const { name, vendor, dept, file } = req.body || {};
+  if (!name || !vendor || !dept) return res.status(400).json({ ok: false, error: "missing_fields" });
+  const invoices = loadDB(INVOICE_DB);
+  const item = {
+    id: "inv-" + Date.now(),
+    name: String(name).trim(),
+    vendor: String(vendor).trim(),
+    dept: String(dept).trim(),
+    file: file ? String(file).trim() : null,
+    completed: false,
+    submittedAt: new Date().toISOString()
+  };
+  invoices.push(item);
+  saveDB(INVOICE_DB, invoices);
+  res.json({ ok: true, id: item.id });
+});
+
+// Supplies
+r.post("/api/supplies", (req, res) => {
+  const { dept, name, items, other, notes, link, urgent, delivery } = req.body || {};
+  if (!dept || !name || !delivery) return res.status(400).json({ ok: false, error: "missing_fields" });
+  const supplies = loadDB(SUPPLY_DB);
+  const mergedItems = Array.isArray(items) ? items.slice(0) : [];
+  if (other && String(other).trim()) mergedItems.push("Other: " + String(other).trim());
+  const item = {
+    id: "sup-" + Date.now(),
+    name: String(name).trim(),
+    dept: String(dept).trim(),
+    items: mergedItems,
+    notes: notes ? String(notes).trim() : "",
+    link: link ? String(link).trim() : "",
+    urgent: urgent ? String(urgent) : "No",
+    delivery: String(delivery),
+    completed: false,
+    submittedAt: new Date().toISOString()
+  };
+  supplies.push(item);
+  saveDB(SUPPLY_DB, supplies);
+  res.json({ ok: true, id: item.id });
+});
+
+// --- ADMIN APIs (read + mark complete only) ---
+r.get("/api/admin/invoices", requireAdmin, (req, res) => {
+  res.json(loadDB(INVOICE_DB));
+});
+
+r.get("/api/admin/supplies", requireAdmin, (req, res) => {
+  res.json(loadDB(SUPPLY_DB));
+});
+
+r.post("/api/admin/invoices/:id/complete", requireAdmin, (req, res) => {
+  const invoices = loadDB(INVOICE_DB);
+  const it = invoices.find(x => x.id === req.params.id);
+  if (!it) return res.status(404).json({ error: "not_found" });
+  it.completed = true;
+  saveDB(INVOICE_DB, invoices);
+  res.json({ ok: true });
+});
+
+r.post("/api/admin/supplies/:id/complete", requireAdmin, (req, res) => {
+  const supplies = loadDB(SUPPLY_DB);
+  const it = supplies.find(x => x.id === req.params.id);
+  if (!it) return res.status(404).json({ error: "not_found" });
+  it.completed = true;
+  saveDB(SUPPLY_DB, supplies);
+  res.json({ ok: true });
+});
+
+// -------- ROUTER FIRST --------
 app.use(BASE_PATH, r);
 
-// -------- NOW STATIC (MUST BE LAST!) --------
+// -------- STATIC --------
 const publicDir = path.join(__dirname, "public");
 app.use(BASE_PATH, express.static(publicDir));
 
-// -------- CONFIG.JS --------
+// config.js (so client knows BASE_PATH)
 app.get(`${BASE_PATH}/config.js`, (req, res) => {
-  res.type("application/javascript").send(
-    `window.__BASE_PATH__ = "${BASE_PATH}";`
-  );
+  res.type("application/javascript").send(`window.__BASE_PATH__ = "${BASE_PATH}";`);
 });
 
-// -------- ROOT ROUTE --------
+// Root route
 app.get(BASE_PATH === "/" ? "/" : `${BASE_PATH}/`, (req, res) =>
   res.sendFile(path.join(publicDir, "index.html"))
 );
