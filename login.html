@@ -1,59 +1,40 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Login — HR Hub</title>
+  <title>Login</title>
 
-  <script src="config.js"></script>
-  <script src="auth.js"></script>
+config.js"></script>
+auth.js"></script>
 
-  <style>
-    body { font-family: system-ui; padding: 40px; }
-    .card { max-width: 420px; margin: auto; padding: 20px; background: #fff; border-radius: 10px; }
-    .error { color: #b91c1c; margin-top: 10px; }
-    .success { color: #065f46; margin-top: 10px; }
-  </style>
 </head>
-
 <body>
 
-<div class="card">
-  <h2>Sign in</h2>
+<h2>Login</h2>
 
-  <form id="loginForm">
-    <label>Username</label>
-    <input id="username" required>
+<form id="loginForm">
+  <input id="username" placeholder="Username" required>
+  <br><br>
+  <input id="password" placeholder="Password" type="password" required>
+  <br><br>
+  <button type="submit">Login</button>
+</form>
 
-    <label>Password</label>
-    <input id="password" type="password" required>
-
-    <button type="submit">Login</button>
-
-    <div id="error" class="error"></div>
-    <div id="success" class="success"></div>
-  </form>
-</div>
+<p id="error" style="color:red;"></p>
 
 <script>
-async function handleLogin(e) {
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const user = username.value.trim();
-  const pass = password.value;
-  error.textContent = "";
-  success.textContent = "";
+
+  const u = username.value.trim();
+  const p = password.value;
 
   try {
-    await Auth.login(user, pass);
-    success.textContent = "Login successful — redirecting…";
-    const returnTo = new URLSearchParams(location.search).get("returnTo") || "index.html";
-    setTimeout(() => (location.href = returnTo), 500);
+    await Auth.login(u, p);
+    location.href = "index.html";
   } catch (err) {
-    error.textContent = err.message;
+    document.getElementById("error").innerText = err.message;
   }
-}
-
-loginForm.addEventListener("submit", handleLogin);
+});
 </script>
 
 </body>
