@@ -23,7 +23,9 @@
     });
     const data = await r.json().catch(()=>({}));
     if(!r.ok || !data.user) throw new Error("Login failed");
-    state.authenticated = true; state.user = data.user; return data.user;
+    state.authenticated = true;
+    state.user = data.user;
+    return data.user;
   }
 
   async function ensureAuthenticated(){
@@ -39,14 +41,20 @@
   function refreshAuthUI(){
     const ctas = document.querySelectorAll('#authCta');
     ctas.forEach(el => {
-      if(state.authenticated){ el.textContent = state.user?.username || 'Account'; el.removeAttribute('data-public'); el.href = '#'; }
-      else { el.textContent = 'Sign in'; el.href = 'login.html'; }
+      if(state.authenticated){
+        el.textContent = state.user?.username || 'Account';
+        el.removeAttribute('data-public');
+        el.href = '#';
+      }
+      else {
+        el.textContent = 'Sign in';
+        el.href = 'login.html';
+      }
     });
   }
 
   function guardLinks(root){
     if(!root) root = document;
-    // Any link without data-public requires auth
     root.querySelectorAll('a:not([data-public])').forEach(a => {
       a.addEventListener('click', async (e) => {
         if(!state.authenticated){
@@ -57,7 +65,15 @@
     });
   }
 
-  function startIdleTimer(){ /* server handles idle via rolling cookie; no-op */ }
+  function startIdleTimer(){ /* server handles idle via rolling cookie */ }
 
-  window.Auth = { state, session, login, ensureAuthenticated, refreshAuthUI, guardLinks, startIdleTimer };
+  window.Auth = { 
+    state, 
+    session, 
+    login, 
+    ensureAuthenticated, 
+    refreshAuthUI, 
+    guardLinks, 
+    startIdleTimer 
+  };
 })();
