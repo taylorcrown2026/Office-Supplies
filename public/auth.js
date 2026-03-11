@@ -4,13 +4,15 @@
   function base() { return (window.__BASE_PATH__ || ""); }
 
   async function session() {
-    const r = await fetch(base() + "/session", { credentials: "include" });
-    const raw = await r.text();
     try {
-      const json = JSON.parse(raw);
-      state.authenticated = json.authenticated;
-      state.user = json.user;
-    } catch {}
+      const r = await fetch(base() + "/session", { credentials: "include" });
+      const raw = await r.text();
+      try {
+        const json = JSON.parse(raw);
+        state.authenticated = !!json.authenticated;
+        state.user = json.user || null;
+      } catch (e) { state.authenticated = false; state.user = null; }
+    } catch (e) { state.authenticated = false; state.user = null; }
     return state;
   }
 
@@ -23,54 +25,81 @@
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok || !data.user) throw new Error("Login failed");
-    state.authenticated = true; state.user = data.user;
-    return data.user;
+    state.authenticated = true; state.user = data.user; return data.user;
   }
 
   async function logout() {
-    await fetch(base() + "/logout", { method: "POST", credentials: "include" });
+    try { await fetch(base() + "/logout", { method: "POST", credentials: "include" }); } catch {}
     state.authenticated = false; state.user = null;
   }
 
   async function ensureAuthenticated() {
     await session();
     if (!state.authenticated) {
-      location.href = "login.html";
+      const here = location.pathname + location.search + location.hash;
+      const ret = encodeURIComponent(here);
+      location.href = base() + "/login.html?return=" + ret;
       return false;
     }
     return true;
   }
 
   function redirectAfterLogin(user) {
-    if (!user) user = state.user;
-    if (!user) return;
-    if (user.role === "admin") location.href = "admin.html";
-    else location.href = "index.html";
+    if (!user) user = state.user; if (!user) return;
+    if (user.role === "admin") location.href = "admin.html"; else location.href = "index.html";
   }
 
-  function refreshAuthUI() {
-    const ctas = document.querySelectorAll('#authCta');
+  function refreshAuthUI(root) {
+    root = root || document;
+    const ctas = root.querySelectorAll('#authCta, [data-auth-cta]');
     ctas.forEach(el => {
-      if (state.authenticated) { el.textContent = state.user?.username || 'Account'; el.href = '#'; }
-      else { el.textContent = 'Sign in'; el.href = 'login.html'; }
+      // Reset existing listeners by cloning
+      const clone = el.cloneNode(true); el.parentNode.replaceChild(clone, el);
+      if (state.authenticated) {
+        clone.textContent = 'Log out';
+        clone.href = '#';
+        clone.addEventListener('click', async (e) => { e.preventDefault(); await logout(); location.href = 'index.html'; });
+      } else {
+        clone.textContent = 'Sign in';
+        clone.href = 'login.html';
+      }
     });
-    // Show/hide admin link
-    document.querySelectorAll('[data-admin-link]').forEach(a => {
+
+    // Show/hide admin links
+    root.querySelectorAll('[data-admin-link]').forEach(a => {
       a.style.display = (state.user?.role === "admin" ? "" : "none");
     });
   }
 
-  function bindLogoutButtons() {
-    document.querySelectorAll('[data-logout]').forEach(btn => {
-      btn.addEventListener("click", async () => {
-        await logout();
-        location.href = "login.html";
-      });
+  function bindLogoutButtons(root){
+    root = root || document;
+    root.querySelectorAll('[data-logout]').forEach(btn => {
+      btn.addEventListener('click', async () => { await logout(); location.href = 'index.html'; });
     });
   }
 
-  window.Auth = {
-    state, base, session, login, logout,
-    ensureAuthenticated, refreshAuthUI, bindLogoutButtons, redirectAfterLogin
-  };
+  // Optional UX: guard protected links client-side for nicer flow
+  async function guardLinks(root){
+    root = root || document;
+    await session();
+    const protectedHrefs = new Set(['invoice.html','supply.html','admin.html']);
+    root.addEventListener('click', (e) => {
+      const a = e.target.closest('a');
+      if (!a) return;
+      const href = (a.getAttribute('href')||'').replace(/^\\?/, '');
+      if (protectedHrefs.has(href) && !state.authenticated) {
+        e.preventDefault();
+        const ret = encodeURIComponent('/' + href);
+        location.href = base() + '/login.html?return=' + ret;
+      }
+    }, true);
+  }
+
+  // Optional: simple idle timer to auto-refresh session state every 60s
+  function startIdleTimer(){
+    setInterval(session, 60000);
+  }
+
+  window.Auth = { state, base, session, login, logout, ensureAuthenticated,
+    redirectAfterLogin, refreshAuthUI, bindLogoutButtons, guardLinks, startIdleTimer };
 })();

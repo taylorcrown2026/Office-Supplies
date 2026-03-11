@@ -29,27 +29,26 @@
       <div class="err" id="error"></div>
     </form>
   </main>
-
   <script>
-    (async function(){
-      // Already signed in? Go to destination based on role
-      const s = await Auth.session();
-      if (s.authenticated) { Auth.redirectAfterLogin(s.user); return; }
-
-      document.getElementById("loginForm").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const u = document.getElementById("username").value.trim();
-        const p = document.getElementById("password").value;
-        const out = document.getElementById("error");
-        out.textContent = "";
-        try {
-          const user = await Auth.login(u, p);
-          Auth.redirectAfterLogin(user);
-        } catch(err) {
-          out.textContent = "Invalid username or password.";
-        }
-      });
-    })();
+  (async function(){
+    const params = new URLSearchParams(location.search);
+    const goBack = params.get('return');
+    const s = await Auth.session();
+    if (s.authenticated) { if (goBack) location.href = goBack; else Auth.redirectAfterLogin(s.user); return; }
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const u = document.getElementById("username").value.trim();
+      const p = document.getElementById("password").value;
+      const out = document.getElementById("error");
+      out.textContent = "";
+      try {
+        const user = await Auth.login(u, p);
+        if (goBack) location.href = goBack; else Auth.redirectAfterLogin(user);
+      } catch(err) {
+        out.textContent = "Invalid username or password.";
+      }
+    });
+  })();
   </script>
 </body>
 </html>

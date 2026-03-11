@@ -28,14 +28,13 @@
 <header>
   <nav>
     <div class="left">
-      <a href="index.html">Home</a> · <span>Admin</span>
+      <a href="index.html">Home</a> • <span>Admin</span>
     </div>
     <div class="right">
       <button class="btn" data-logout>Logout</button>
     </div>
   </nav>
 </header>
-
 <main>
   <div class="card">
     <h2>Invoices</h2>
@@ -48,7 +47,6 @@
       <tbody></tbody>
     </table>
   </div>
-
   <div class="card">
     <h2>Supply Orders</h2>
     <table id="tblSupplies" aria-label="Supplies">
@@ -61,18 +59,15 @@
     </table>
   </div>
 </main>
-
 <script>
   (async function(){
-    // Auth + admin gate
     const sess = await Auth.session();
-    if(!sess.authenticated){ location.href = "login.html"; return; }
+    if(!sess.authenticated){ location.href = "login.html?return=" + encodeURIComponent('/admin.html'); return; }
     if(sess.user?.role !== 'admin'){ alert('Admins only'); location.href = "index.html"; return; }
     Auth.bindLogoutButtons();
 
     async function fetchJSON(url){ const r = await fetch(url, { credentials:'same-origin' }); if(!r.ok) throw new Error('Failed'); return r.json(); }
     function fmtDate(s){ try{ return new Date(s).toLocaleString(); }catch{ return s; } }
-
     function renderInvoices(rows){
       const tb = document.querySelector('#tblInvoices tbody'); tb.innerHTML = '';
       rows.sort((a,b)=> new Date(b.submittedAt)-new Date(a.submittedAt));
@@ -85,13 +80,11 @@
           <td>${it.dept || ''}</td>
           <td>${it.file ? it.file : ''}</td>
           <td>
-            ${it.completed ? `<span class="badge done">Completed</span>`
-                           : `<button class="btn" data-complete-inv="${it.id}">Mark completed</button>`}
+            ${it.completed ? `<span class="badge done">Completed</span>` : `<button class="btn" data-complete-inv="${it.id}">Mark completed</button>`}
           </td>`;
         tb.appendChild(tr);
       }
     }
-
     function renderSupplies(rows){
       const tb = document.querySelector('#tblSupplies tbody'); tb.innerHTML = '';
       rows.sort((a,b)=> new Date(b.submittedAt)-new Date(a.submittedAt));
@@ -104,36 +97,26 @@
           <td>${Array.isArray(it.items)? it.items.join(', ') : ''}</td>
           <td>${it.urgent || 'No'}</td>
           <td>
-            ${it.completed ? `<span class="badge done">Completed</span>`
-                           : `<button class="btn" data-complete-sup="${it.id}">Mark completed</button>`}
+            ${it.completed ? `<span class="badge done">Completed</span>` : `<button class="btn" data-complete-sup="${it.id}">Mark completed</button>`}
           </td>`;
         tb.appendChild(tr);
       }
     }
-
     async function loadAll(){
       const [invoices, supplies] = await Promise.all([
         fetchJSON('/api/admin/invoices'),
         fetchJSON('/api/admin/supplies')
       ]);
-      renderInvoices(invoices);
-      renderSupplies(supplies);
+      renderInvoices(invoices); renderSupplies(supplies);
     }
-
     document.addEventListener('click', async (e)=>{
       const invId = e.target.getAttribute && e.target.getAttribute('data-complete-inv');
       const supId = e.target.getAttribute && e.target.getAttribute('data-complete-sup');
       try{
-        if(invId){
-          await fetch(`/api/admin/invoices/${invId}/complete`, { method:'POST' });
-          await loadAll();
-        } else if(supId){
-          await fetch(`/api/admin/supplies/${supId}/complete`, { method:'POST' });
-          await loadAll();
-        }
+        if(invId){ await fetch(`/api/admin/invoices/${invId}/complete`, { method:'POST' }); await loadAll(); }
+        else if(supId){ await fetch(`/api/admin/supplies/${supId}/complete`, { method:'POST' }); await loadAll(); }
       }catch(err){ alert('Action failed. Try again.'); }
     });
-
     loadAll();
   })();
 </script>

@@ -24,14 +24,13 @@
 <header>
   <nav>
     <div class="left">
-      <a href="index.html">Home</a> · <span>Upload Invoices</span>
+      <a href="index.html">Home</a> • <span>Upload Invoices</span>
     </div>
     <div class="right">
       <button class="btn" data-logout>Logout</button>
     </div>
   </nav>
 </header>
-
 <main>
   <h1>Upload Invoices</h1>
   <div class="card">
@@ -68,12 +67,10 @@
     </form>
   </div>
 </main>
-
 <script>
   (async function(){
     if(!await Auth.ensureAuthenticated()) return;
     Auth.bindLogoutButtons();
-
     document.getElementById('invoiceForm').addEventListener('submit', async function(e){
       e.preventDefault();
       const name = document.getElementById('name').value.trim();
@@ -81,18 +78,14 @@
       const dept = document.getElementById('dept').value.trim();
       const fileInput = document.getElementById('file');
       if(!name || !vendor || !dept || !fileInput.files.length){ alert('Please complete all required fields.'); return; }
-
       // 1) Upload file
-      const fd = new FormData();
-      fd.append('file', fileInput.files[0]);
+      const fd = new FormData(); fd.append('file', fileInput.files[0]);
       let uploaded;
       try{
         const r = await fetch('/upload', { method:'POST', body: fd, credentials:'same-origin' });
-        const j = await r.json();
-        if(!r.ok || !j.ok) throw new Error('Upload failed');
+        const j = await r.json(); if(!r.ok || !j.ok) throw new Error('Upload failed');
         uploaded = j.file; // {name,size}
       }catch(err){ alert('Upload failed. Please try again.'); return; }
-
       // 2) Record submission
       try{
         await fetch('/api/invoices', {
@@ -100,7 +93,6 @@
           body: JSON.stringify({ name, vendor, dept, file: uploaded.name })
         });
       }catch(err){ /* non-fatal */ }
-
       // 3) Open Outlook email
       const to = 'tcrownover@concentra.com';
       const subject = `Invoice Submission - ${vendor} - ${dept} - ${name}`;
