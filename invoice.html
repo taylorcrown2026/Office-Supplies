@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Upload Invoices</title>
+  <style>
+    :root{--brand:#0f6cbd;--ink:#1a1a1a;--muted:#666;--bg:#f7f7f7;--card:#fff;--danger:#b91c1c}
+    *{box-sizing:border-box}
+    body{margin:0;font:16px/1.5 system-ui,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+    header{background:#fff;border-bottom:1px solid #e5e5e5}
+    nav{max-width:980px;margin:0 auto;padding:12px 16px;display:flex;gap:12px;align-items:center;justify-content:space-between}
+    nav .left, nav .right{display:flex;gap:12px;align-items:center}
+    a{color:var(--brand);text-decoration:none}
+    main{max-width:980px;margin:24px auto;padding:0 16px}
+    .card{background:var(--card);border:1px solid #e5e5e5;border-radius:10px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+    .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid #d0d7de;background:#fff;color:var(--ink);padding:10px 14px;border-radius:8px;cursor:pointer}
+    .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+    form .row{display:grid;grid-template-columns:1fr 2fr;gap:12px;align-items:center;margin:10px 0}
+    input,select{width:100%;padding:10px;border:1px solid #d0d7de;border-radius:8px}
+    label{font-weight:600}
+    .note{background:#fff6db;border:1px solid #fde68a;color:#8a6d00;padding:8px 10px;border-radius:8px}
+  </style>
+</head>
+<body>
+  <header>
+    <nav>
+      <div class="left">
+        <a href="index.html">Home</a> • <span>Upload Invoices</span>
+      </div>
+      <div class="right"></div>
+    </nav>
+  </header>
+
+  <main>
+    <h1>Upload Invoices</h1>
+    <p class="note">This page will open a new email in Outlook with all details pre‑filled. Due to browser security, attachments can’t be added automatically — please attach your invoice file(s) in the email draft before sending.</p>
+
+    <div class="card">
+      <form id="invoiceForm" novalidate>
+        <div class="row">
+          <label for="name">Your name *</label>
+          <input id="name" type="text" required />
+        </div>
+        <div class="row">
+          <label for="vendor">Vendor *</label>
+          <input id="vendor" type="text" required />
+        </div>
+        <div class="row">
+          <label for="dept">Department *</label>
+          <select id="dept" required>
+            <option value="" selected disabled>Select your department</option>
+            <option>HR Services (Deidre Debruin)</option>
+            <option>HR Leadership (Danielle Kendall)</option>
+            <option>Internal Communications & Knowledge Management (Michelle Tandoc)</option>
+            <option>Learning & Leadership Development (Amy Kidder)</option>
+            <option>Payroll & Benefits (Pamela Ashworth)</option>
+            <option>Talent Acquisition (Samantha Oakley)</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="file">Invoice file(s) *</label>
+          <input id="file" name="file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" multiple required />
+        </div>
+        <div class="actions" style="margin-top:12px">
+          <button type="submit" class="btn primary">Submit</button>
+          <button type="reset" class="btn">Reset</button>
+          <a class="btn" href="index.html">Home</a>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <script>
+    (function(){
+      document.getElementById('invoiceForm').addEventListener('submit', function(e){
+        e.preventDefault();
+        const name = document.getElementById('name').value.trim();
+        const vendor = document.getElementById('vendor').value.trim();
+        const dept = document.getElementById('dept').value.trim();
+        const fileInput = document.getElementById('file');
+        if(!name || !vendor || !dept || !fileInput.files.length){ alert('Please complete all required fields.'); return; }
+
+        // Build file listing from the FileList (names & sizes only; no paths)
+        let fileLines = '';
+        let totalSize = 0;
+        for(const f of fileInput.files){
+          totalSize += f.size || 0;
+          const kb = (f.size/1024).toFixed(1);
+          fileLines += `- ${f.name} (${kb} KB)\n`;
+        }
+
+        const to = 'tcrownover@concentra.com';
+        const subject = `Invoice Submission - ${vendor} - ${dept} - ${name}`;
+        const EOL = '\r\n';
+        let body = '';
+        body += `Requestor: ${name}${EOL}`;
+        body += `Vendor: ${vendor}${EOL}`;
+        body += `Department: ${dept}${EOL}`;
+        body += `${EOL}Selected file(s):${EOL}` + (fileLines || '(none)'+EOL);
+        body += `${EOL}Note: Please attach the above file(s) before sending.${EOL}`;
+        body += `${EOL}Submitted from: ${location.href}${EOL}`;
+        body += `Submitted at: ${new Date().toLocaleString()}${EOL}`;
+
+        const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        try{ window.location.href = mailto; }catch(err){ window.open(mailto, '_self'); }
+        setTimeout(()=>{ (e.target).reset(); alert('Your Outlook/new mail window should now be open with details prefilled. Don\'t forget to attach the invoice file(s).'); }, 200);
+      });
+    })();
+  </script>
+</body>
+</html>
