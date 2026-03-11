@@ -4,80 +4,57 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Login — HR Hub</title>
+
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+
   <style>
-    :root{ --ink:#0F172A; --muted:#475569; --bg:#F8FAFC; --white:#fff; --indigo:#4f46e5; }
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;display:grid;place-items:center;padding:24px}
-    .card{width:100%;max-width:420px;background:var(--white);border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 20px 40px rgba(2,6,23,.06);overflow:hidden}
-    header{background:linear-gradient(120deg,#7c3aed,#4f46e5);color:#fff;padding:18px 20px}
-    header h1{font-size:20px;font-weight:800}
-    main{padding:22px}
-    .hint{font-size:13px;color:var(--muted);margin-bottom:12px}
-    label{display:block;font-size:14px;font-weight:700;margin:10px 0 6px}
-    input{width:100%;padding:12px 14px;border:1px solid #e5e7eb;border-radius:10px;font-size:15px}
-    input:focus{outline:2px solid rgba(79,70,229,.35);border-color:#c7d2fe}
-    .row{display:flex;gap:10px;align-items:center;margin-top:10px}
-    button{appearance:none;border:0;border-radius:12px;background:var(--ink);color:#fff;padding:12px 16px;font-weight:800;cursor:pointer}
-    button[disabled]{opacity:.6;cursor:not-allowed}
-    .muted{font-size:13px;color:var(--muted);}
-    .error{color:#b91c1c;font-size:13px;margin-top:8px}
-    .success{color:#065f46;font-size:13px;margin-top:8px}
-    footer{padding:12px 20px;background:#f8fafc;border-top:1px solid #eef2f7;font-size:12px;color:#475569}
+    body { font-family: system-ui; padding: 40px; }
+    .card { max-width: 420px; margin: auto; padding: 20px; background: #fff; border-radius: 10px; }
+    .error { color: #b91c1c; margin-top: 10px; }
+    .success { color: #065f46; margin-top: 10px; }
   </style>
-  <!-- Load dynamic base config first (relative so it works under BASE_PATH) -->
-  <script defer src="config.js"></script>
-  <!-- Then load auth helpers (also relative) -->
-  <script defer src="auth.js"></script>
-  <script>
-    async function handleLogin(e){
-      e.preventDefault();
-      const username = document.getElementById('username').value.trim();
-      const password = document.getElementById('password').value;
-      const error = document.getElementById('error');
-      const success = document.getElementById('success');
-      error.textContent=''; success.textContent='';
-      if(!username || !password){ error.textContent='Username and password are required.'; return; }
-      try{
-        await Auth.login(username, password);
-        const params = new URLSearchParams(location.search);
-        const returnTo = params.get('returnTo') || 'index.html';
-        success.textContent='Login successful. Redirecting…';
-        setTimeout(()=> location.href = returnTo, 400);
-      }catch(err){
-        error.textContent = (err && err.message) ? err.message : 'Login failed.';
-      }
-    }
-    document.addEventListener('DOMContentLoaded', async ()=>{
-      document.getElementById('loginForm').addEventListener('submit', handleLogin);
-      const params = new URLSearchParams(location.search);
-      const loggedOut = params.get('loggedOut')==='1';
-      const s = await Auth.session();
-      if(s.authenticated && !loggedOut){ location.replace(params.get('returnTo')||'index.html'); }
-    });
-  </script>
 </head>
+
 <body>
-  <div class="card" role="dialog" aria-labelledby="title" aria-describedby="desc">
-    <header><h1 id="title">Sign in to HR Hub</h1></header>
-    <main>
-      <p id="desc" class="hint">Passwords are <strong>hashed server‑side with bcrypt</strong> and sessions are stored in an HTTP‑only cookie. Use HTTPS in production for encryption in transit.</p>
-      <form id="loginForm" autocomplete="off" novalidate>
-        <label for="username">Username</label>
-        <input id="username" name="username" type="text" placeholder="hradmin" required />
-        <label for="password">Password</label>
-        <input id="password" name="password" type="password" placeholder="••••••••" required />
-        <div class="row" style="margin-top:16px">
-          <button type="submit" id="submitBtn">Sign in</button>
-          <a class="muted" href="index.html" data-public>Cancel</a>
-        </div>
-        <div id="error" class="error" role="alert" aria-live="polite"></div>
-        <div id="success" class="success" aria-live="polite"></div>
-      </form>
-      <p class="hint" style="margin-top:10px">Demo credentials → <code>hradmin</code> / <code>HR!2026-Secure</code> or <code>admin</code> / <code>Admin@123!</code></p>
-    </main>
-    <footer>
-      <strong>SOC2 reminder:</strong> enforce HTTPS, server-side hashing (bcrypt/Argon2id), MFA, rate limiting, audit logging, and short‑lived server sessions with HttpOnly + Secure cookies.
-    </footer>
-  </div>
+
+<div class="card">
+  <h2>Sign in</h2>
+
+  <form id="loginForm">
+    <label>Username</label>
+    <input id="username" required>
+
+    <label>Password</label>
+    <input id="password" type="password" required>
+
+    <button type="submit">Login</button>
+
+    <div id="error" class="error"></div>
+    <div id="success" class="success"></div>
+  </form>
+</div>
+
+<script>
+async function handleLogin(e) {
+  e.preventDefault();
+  const user = username.value.trim();
+  const pass = password.value;
+  error.textContent = "";
+  success.textContent = "";
+
+  try {
+    await Auth.login(user, pass);
+    success.textContent = "Login successful — redirecting…";
+    const returnTo = new URLSearchParams(location.search).get("returnTo") || "index.html";
+    setTimeout(() => (location.href = returnTo), 500);
+  } catch (err) {
+    error.textContent = err.message;
+  }
+}
+
+loginForm.addEventListener("submit", handleLogin);
+</script>
+
 </body>
 </html>
