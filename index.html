@@ -128,13 +128,27 @@
         </span>
       </div>
 
-      <nav class="nav" aria-label="Primary">
-        <a href="#">Supplies</a>
-        <a href="#">UAR</a>
-        <a href="#">Projects</a>
-        <a href="#">Invoices</a>
-        <a href="#">Help</a>
-      </nav>
+
+<nav class="nav-root" aria-label="Primary" style="display:flex;align-items:center;gap:32px">
+  <details class="nav-dd">
+    <summary class="nav-top" style="list-style:none;cursor:pointer;background:none;border:0;color:#fff;font-weight:700">
+      Supplies
+    </summary>
+    <div style="position:static;padding:6px 0">
+      <a href="supply.html" style="color:#fff;text-decoration:underline">Order supplies</a>
+    </div>
+  </details>
+
+  <details class="nav-dd">
+    <summary class="nav-top" style="list-style:none;cursor:pointer;background:none;border:0;color:#fff;font-weight:700">
+      Invoices
+    </summary>
+    <div style="position:static;padding:6px 0">
+      <a href="invoice.html" style="color:#fff;text-decoration:underline">Upload invoices</a>
+    </div>
+  </details>
+</nav>
+
 
       <div class="right-cta">
         <a href="#">Contact HR</a>
