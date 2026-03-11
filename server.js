@@ -8,7 +8,6 @@ const helmet = require("helmet");
 const session = require("express-session");
 const bcrypt = require("bcrypt");
 const multer = require("multer");
-
 const app = express();
 
 // -------- ENV --------
@@ -24,7 +23,6 @@ const {
 let BASE_PATH = RAW_BASE || "/";
 if (!BASE_PATH.startsWith("/")) BASE_PATH = "/" + BASE_PATH;
 if (BASE_PATH !== "/" && BASE_PATH.endsWith("/")) BASE_PATH = BASE_PATH.slice(0, -1);
-
 app.set("trust proxy", 1);
 
 // -------- SECURITY --------
@@ -66,51 +64,28 @@ app.use((req, res, next) => {
   next();
 });
 
-// -------- USERS (add one regular user as requested) --------
+// -------- USERS (admin + employee) --------
 const USERS = [
-  {
-    id: "u1",
-    username: "hradmin",
-    role: "admin",
-    passwordHash: bcrypt.hashSync("HR!2026-Secure", 12)
-  },
-  {
-    id: "u2",
-    username: "admin",
-    role: "admin",
-    passwordHash: bcrypt.hashSync("Admin@123!", 12)
-  },
-  {
-    id: "u3",
-    username: "employee",
-    role: "user",
-    passwordHash: bcrypt.hashSync("Employee123!", 12)
-  }
+  { id: "u1", username: "hradmin", role: "admin", passwordHash: bcrypt.hashSync("HR!2026-Secure", 12) },
+  { id: "u2", username: "admin",   role: "admin", passwordHash: bcrypt.hashSync("Admin@123!", 12) },
+  { id: "u3", username: "employee", role: "user",  passwordHash: bcrypt.hashSync("Employee123!", 12) }
 ];
-const findUser = (u) =>
-  USERS.find((x) => x.username.toLowerCase() === String(u).toLowerCase()) || null;
+const findUser = (u) => USERS.find((x) => x.username.toLowerCase() === String(u).toLowerCase()) || null;
 
 // -------- ROUTER (APIs) --------
 const r = express.Router();
 
 r.get("/session", (req, res) => {
-  res.json({
-    authenticated: !!req.session.user,
-    user: req.session.user || null
-  });
+  res.json({ authenticated: !!req.session.user, user: req.session.user || null });
 });
 
 r.post("/login", async (req, res) => {
   const { username, password } = req.body || {};
-  if (!username || !password)
-    return res.status(400).json({ ok: false, error: "missing_credentials" });
-
+  if (!username || !password) return res.status(400).json({ ok: false, error: "missing_credentials" });
   const user = findUser(username);
   if (!user) return res.status(401).json({ ok: false, error: "invalid_credentials" });
-
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) return res.status(401).json({ ok: false, error: "invalid_credentials" });
-
   req.session.user = { id: user.id, username: user.username, role: user.role };
   req.session.lastActivity = Date.now();
   return res.json({ ok: true, user: req.session.user });
@@ -125,7 +100,6 @@ const upload = multer({ dest: uploadDir });
 
 r.post("/upload", upload.single("file"), (req, res) => {
   if (!req.file) return res.json({ ok: false, error: "no_file" });
-  // Not exposing public links; only store name/size.
   res.json({ ok: true, file: { name: req.file.originalname, size: req.file.size } });
 });
 
@@ -133,7 +107,7 @@ r.post("/upload", upload.single("file"), (req, res) => {
 const DATA_DIR = path.join(__dirname, "data");
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 const INVOICE_DB = path.join(DATA_DIR, "invoices.json");
-const SUPPLY_DB = path.join(DATA_DIR, "supplies.json");
+const SUPPLY_DB  = path.join(DATA_DIR, "supplies.json");
 
 function loadDB(file) {
   try {
@@ -152,7 +126,6 @@ function saveDB(file, data) {
   if (!Array.isArray(data)) data = [];
   writeJSONAtomic(file, data);
 }
-
 function requireAdmin(req, res, next) {
   if (!req.session.user || req.session.user.role !== "admin") {
     return res.status(403).json({ error: "admin_only" });
@@ -163,9 +136,7 @@ function requireAdmin(req, res, next) {
 // --- Public APIs to record submissions ---
 r.post("/api/invoices", (req, res) => {
   const { name, vendor, dept, file } = req.body || {};
-  if (!name || !vendor || !dept)
-    return res.status(400).json({ ok: false, error: "missing_fields" });
-
+  if (!name || !vendor || !dept) return res.status(400).json({ ok: false, error: "missing_fields" });
   const invoices = loadDB(INVOICE_DB);
   const item = {
     id: "inv-" + Date.now(),
@@ -180,12 +151,9 @@ r.post("/api/invoices", (req, res) => {
   saveDB(INVOICE_DB, invoices);
   res.json({ ok: true, id: item.id });
 });
-
 r.post("/api/supplies", (req, res) => {
   const { dept, name, items, other, notes, link, urgent, delivery } = req.body || {};
-  if (!dept || !name || !delivery)
-    return res.status(400).json({ ok: false, error: "missing_fields" });
-
+  if (!dept || !name || !delivery) return res.status(400).json({ ok: false, error: "missing_fields" });
   const supplies = loadDB(SUPPLY_DB);
   const mergedItems = Array.isArray(items) ? items.slice(0) : [];
   if (other && String(other).trim()) mergedItems.push("Other: " + String(other).trim());
@@ -207,12 +175,8 @@ r.post("/api/supplies", (req, res) => {
 });
 
 // --- ADMIN APIs (read + mark complete only) ---
-r.get("/api/admin/invoices", requireAdmin, (req, res) => {
-  res.json(loadDB(INVOICE_DB));
-});
-r.get("/api/admin/supplies", requireAdmin, (req, res) => {
-  res.json(loadDB(SUPPLY_DB));
-});
+r.get("/api/admin/invoices", requireAdmin, (req, res) => { res.json(loadDB(INVOICE_DB)); });
+r.get("/api/admin/supplies", requireAdmin, (req, res) => { res.json(loadDB(SUPPLY_DB)); });
 r.post("/api/admin/invoices/:id/complete", requireAdmin, (req, res) => {
   const invoices = loadDB(INVOICE_DB);
   const it = invoices.find((x) => x.id === req.params.id);
@@ -238,21 +202,20 @@ app.get(`${BASE_PATH}/config.js`, (req, res) => {
   res.type("application/javascript").send(`window.__BASE_PATH__ = "${BASE_PATH}";`);
 });
 
-// -------- PAGE GUARD MIDDLEWARE (hard server-side protection) --------
-const PROTECTED = new Set([
-  "/", "/index.html", "/invoice.html", "/supply.html", "/admin.html"
-]);
+// -------- PAGE GUARD MIDDLEWARE (server-side protection) --------
+// Make index.html PUBLIC home; protect working pages only
+const PROTECTED = new Set(["/invoice.html", "/supply.html", "/admin.html"]);
+
 app.use(BASE_PATH, (req, res, next) => {
   const p = req.path;
-
   // Allow public assets
-  const PUBLIC_OK = ["/login.html", "/config.js", "/auth.js", "/favicon.ico"];
+  const PUBLIC_OK = ["/index.html", "/login.html", "/config.js", "/auth.js", "/favicon.ico"];
   if (PUBLIC_OK.includes(p)) return next();
 
-  // Protect main pages
   if (PROTECTED.has(p)) {
     if (!req.session.user) {
-      return res.redirect(`${BASE_PATH}/login.html`);
+      const ret = encodeURIComponent(req.originalUrl || `${BASE_PATH}/index.html`);
+      return res.redirect(`${BASE_PATH}/login.html?return=${ret}`);
     }
     if (p === "/admin.html" && req.session.user.role !== "admin") {
       return res.redirect(`${BASE_PATH}/index.html`);
@@ -265,11 +228,9 @@ app.use(BASE_PATH, (req, res, next) => {
 const publicDir = path.join(__dirname, "public");
 app.use(BASE_PATH, express.static(publicDir));
 
-// Root route: if unauth → login; else → index or admin based on role
+// Root route: ALWAYS serve public home (index.html)
 app.get(BASE_PATH === "/" ? "/" : `${BASE_PATH}/`, (req, res) => {
-  if (!req.session?.user) return res.redirect(`${BASE_PATH}/login.html`);
-  const dest = req.session.user.role === "admin" ? "admin.html" : "index.html";
-  res.redirect(`${BASE_PATH}/${dest}`);
+  res.sendFile(path.join(publicDir, "index.html"));
 });
 
 // -------- START --------
