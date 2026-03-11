@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HR Hub — Concentra</title>
+
+  <!-- Google Fonts (correct usage — nothing visible renders) -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    /* ===================================================================
+       ROOT & GLOBAL
+       =================================================================== */
+    :root{
+      --ink:#0F172A;            /* primary text */
+      --muted:#475569;          /* secondary text */
+      --white:#FFFFFF;          /* white */
+      --surface:#FFFFFF;        /* card surface */
+      --border:#E5E7EB;         /* subtle border */
+
+      --indigo:#6366F1;         /* accent indigo */
+      --blue:#4F46E5;           /* accent blue */
+
+      /* Gradient hero stops (Stripe-like) */
+      --gA:#ff6b6b;             /* coral */
+      --gB:#7c3aed;             /* violet */
+      --gC:#4f46e5;             /* indigo */
+      --gD:#ff8a00;             /* tangerine */
+
+      --shadow-strong:0 36px 120px rgba(2,6,23,.28);
+      --shadow-soft:0 24px 80px rgba(2,6,23,.16);
+      --shadow-mid:0 16px 44px rgba(2,6,23,.20);
+
+      --r-card:28px;            /* rounded corners */
+      --r-inner:14px;
+    }
+
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{
+      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      color:var(--ink);
+      background:var(--white);
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      overflow-x:hidden;
+    }
+
+    a{color:inherit}
+
+    /* ===================================================================
+       TOP NAV (Stripe-like)
+       =================================================================== */
+    .topbar{position:relative;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:26px 48px;color:#fff}
+
+    .brand{display:flex;align-items:center;gap:12px}
+
+    /* Inline fallback logo so there's never a broken image */
+    .brand .logo-fallback{display:inline-flex;align-items:center;gap:8px;color:#fff;font-weight:800;letter-spacing:.2px}
+    .brand .logo-fallback svg{width:28px;height:28px;display:block}
+
+    /* If you have concentra-logo.png, swap the span for the img below */
+    .brand img{height:30px;display:block}
+
+    .nav{display:flex;align-items:center;gap:34px}
+    .nav a{color:#fff;opacity:.96;text-decoration:none;font-weight:600;font-size:15px;letter-spacing:-.2px}
+    .nav a:hover{opacity:1}
+
+    .right-cta{display:flex;align-items:center;gap:18px}
+    .right-cta a{color:#fff;text-decoration:none;font-weight:600;font-size:14px;opacity:.95}
+    .btn-outline{padding:8px 18px;border-radius:22px;border:1px solid rgba(255,255,255,.65);color:#fff;text-decoration:none;font-weight:600;font-size:14px}
+    .btn-outline:hover{background:rgba(255,255,255,.16)}
+
+    /* ===================================================================
+       HERO (True Stripe composition)
+       =================================================================== */
+    .hero{position:relative;min-height:100vh;height:100vh;min-height:760px;overflow:hidden;background:linear-gradient(120deg,var(--gA),var(--gB),var(--gC),var(--gD))}
+
+    /* White angled wedge bottom-left */
+    .hero:after{content:"";position:absolute;inset:auto 0 0 0;height:68%;background:#fff;clip-path:polygon(0 16%, 60% 0, 60% 100%, 0 100%);z-index:1}
+
+    .hero-inner{position:relative;z-index:5;max-width:1500px;margin:0 auto;padding:100px 60px;display:grid;grid-template-columns:1fr 1fr;gap:84px;align-items:center;height:100%}
+
+    .headline{position:relative;top:40px}
+    .headline h1{font-weight:900;font-size:88px;line-height:.95;letter-spacing:-2px;color:var(--ink)}
+    .sub{margin-top:22px;font-size:22px;line-height:1.55;color:var(--muted);max-width:640px}
+
+    .cta-row{margin-top:34px;display:flex;align-items:center;gap:22px}
+    .btn-primary{background:var(--ink);color:#fff;padding:16px 32px;border-radius:28px;text-decoration:none;font-weight:800;font-size:16px}
+    .link{font-weight:700;color:var(--ink);text-decoration:none}
+
+    /* ===================================================================
+       RESPONSIVE
+       =================================================================== */
+    @media (max-width:1200px){
+      .panel-back{right:auto;left:0;top:360px;transform:rotate(0);width:100%;max-width:620px}
+      .panel-mid{display:none}
+      .panel-front{position:relative;right:auto;top:auto;margin:0 auto}
+      .hero-inner{grid-template-columns:1fr;gap:56px;padding:84px 40px}
+      .headline{top:0}
+      .headline h1{font-size:64px}
+    }
+
+    @media (max-width:700px){
+      .topbar{padding:20px}
+      .nav{display:none}
+      .right-cta{gap:12px}
+      .hero-inner{padding:60px 20px}
+      .headline h1{font-size:44px}
+      .sub{font-size:18px}
+      .panel-front{width:100%;max-width:380px;margin-left:auto;margin-right:auto}
+    }
+  </style>
+</head>
+<body>
+  <section class="hero">
+    <header class="topbar">
+      <div class="brand">
+        <!-- Fallback mark (remove if you swap to your real file) -->
+        <span class="logo-fallback" aria-label="Concentra">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="2" y="4" width="20" height="16" rx="4" fill="rgba(255,255,255,.25)" stroke="rgba(255,255,255,.6)"/>
+            <path d="M6 12h12" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          Concentra
+        </span>
+      </div>
+
+      <nav class="nav" aria-label="Primary">
+        <a href="#">Supplies</a>
+        <a href="#">UAR</a>
+        <a href="#">Projects</a>
+        <a href="#">Invoices</a>
+        <a href="#">Help</a>
+      </nav>
+
+      <div class="right-cta">
+        <a href="#">Contact HR</a>
+        <a href="#" class="btn-outline">Sign in</a>
+      </div>
+    </header>
+
+    <div class="hero-inner">
+      <!-- LEFT CONTENT -->
+      <div class="headline">
+        <h1>Concentra</h1>
+        <br>
+        <h1>HR Hub</h1>
+        <p class="sub">Your one‑stop workspace for supplies, UAR access requests, new‑hire bundles,
+          HR project intake, and official invoice submission — everything you need in one place.</p>
+        <div class="cta-row">
+          <a class="btn-primary" href="#">Start now</a>
+          <a class="link" href="#">Contact HR →</a>
+        </div>
+      </div>
+            <div class="pb-chart">
+              <svg viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <defs>
+                  <linearGradient id="g1" x1="0" x2="0" y1="0" y2="1">
+                    <stop stop-color="#A78BFA" offset="0"/>
+                    <stop stop-color="#6366F1" offset="1"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+          </div>
+        </div>
+    </div>
+  </section>
+</body>
+</html>
