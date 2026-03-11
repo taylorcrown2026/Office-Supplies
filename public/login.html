@@ -29,26 +29,36 @@
       <div class="err" id="error"></div>
     </form>
   </main>
-  <script>
-  (async function(){
-    const params = new URLSearchParams(location.search);
-    const goBack = params.get('return');
-    const s = await Auth.session();
-    if (s.authenticated) { if (goBack) location.href = goBack; else Auth.redirectAfterLogin(s.user); return; }
-    document.getElementById("loginForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const u = document.getElementById("username").value.trim();
-      const p = document.getElementById("password").value;
-      const out = document.getElementById("error");
-      out.textContent = "";
-      try {
-        const user = await Auth.login(u, p);
-        if (goBack) location.href = goBack; else Auth.redirectAfterLogin(user);
-      } catch(err) {
-        out.textContent = "Invalid username or password.";
-      }
-    });
-  })();
-  </script>
+  <script>(async function(){
+  function normalizeReturn(goBack){
+    if(!goBack) return null;
+    // Absolute URL? just use it.
+    if(/^https?:\/\//i.test(goBack)) return goBack;
+    // Ensure it starts with base() + '/'
+    var b = (window.__BASE_PATH__ || '');
+    if(goBack.startsWith(b)) return goBack;
+    if(goBack.startsWith('/')) return b + goBack;
+    return b + '/' + goBack;
+  }
+
+  const params = new URLSearchParams(location.search);
+  const rawReturn = params.get('return');
+  const goBack = normalizeReturn(rawReturn);
+  const s = await Auth.session();
+  if (s.authenticated) { if (goBack) location.href = goBack; else Auth.redirectAfterLogin(s.user); return; }
+  document.getElementById("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const u = document.getElementById("username").value.trim();
+    const p = document.getElementById("password").value;
+    const out = document.getElementById("error");
+    out.textContent = "";
+    try {
+      const user = await Auth.login(u, p);
+      if (goBack) location.href = goBack; else Auth.redirectAfterLogin(user);
+    } catch(err) {
+      out.textContent = "Invalid username or password.";
+    }
+  });
+})();</script>
 </body>
 </html>
