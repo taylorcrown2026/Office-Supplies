@@ -1,0 +1,1 @@
+window.__BASE_PATH__ = "";
