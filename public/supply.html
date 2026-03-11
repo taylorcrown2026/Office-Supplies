@@ -40,13 +40,14 @@
         <span>Order Supplies</span>
       </div>
       <div class="right">
-        <a id="authCta" href="login.html" data-auth-cta>Sign in</a>
+        <!-- static site: no auth -->
       </div>
     </nav>
   </header>
   <main>
     <h1>Order Office Supplies</h1>
-    <p class="lead">Submit this form and your mail app will open a ready‑to‑send email to <strong>tcrownover@concentra.com</strong>.</p>
+    <p class="lead">Submit this form and Outlook (or your default mail app) will open a ready‑to‑send email to <strong>tcrownover@concentra.com</strong>.</p>
+
     <div class="card">
       <form id="supplyForm" novalidate>
         <div class="row">
@@ -65,6 +66,7 @@
           <label for="name">Your name <span aria-hidden="true" style="color:var(--danger)">*</span></label>
           <input id="name" type="text" autocomplete="name" placeholder="First Last" required />
         </div>
+
         <fieldset>
           <legend>Supplies needed</legend>
           <div class="grid" id="itemsGrid">
@@ -109,6 +111,7 @@
             <input id="link" type="url" inputmode="url" placeholder="https://example.com/product" />
           </div>
         </fieldset>
+
         <div class="row">
           <label for="delivery">Delivery by <span aria-hidden="true" style="color:var(--danger)">*</span></label>
           <div>
@@ -117,6 +120,7 @@
             <div class="note" id="deliveryNote" style="display:none;margin-top:8px"></div>
           </div>
         </div>
+
         <fieldset>
           <legend>Is this urgent?</legend>
           <div class="grid" style="grid-template-columns:repeat(2, minmax(120px, 1fr))">
@@ -124,6 +128,7 @@
             <label><input type="radio" name="urgent" value="Yes" /> Yes</label>
           </div>
         </fieldset>
+
         <div class="actions">
           <button type="submit" class="btn primary">Submit request</button>
           <button type="reset" class="btn">Reset</button>
@@ -132,71 +137,69 @@
       </form>
     </div>
   </main>
-<script src="/config.js"></script>
-<script src="/auth.js"></script>
-<script>
-(function(){
-  function addBusinessDays(fromDate, days){
-    const d = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
-    let added = 0; while(added < days){ d.setDate(d.getDate()+1); const wd=d.getDay(); if(wd!==0 && wd!==6) added++; }
-    return d;
-  }
-  function formatYMD(date){ const y=date.getFullYear(); const m=String(date.getMonth()+1).padStart(2,'0'); const da=String(date.getDate()).padStart(2,'0'); return `${y}-${m}-${da}`; }
-  document.addEventListener('DOMContentLoaded', async function(){
-    if(!await Auth.ensureAuthenticated()) return;
-    await Auth.session();
-    Auth.refreshAuthUI();
-    const delivery = document.getElementById('delivery');
-    const hint = document.getElementById('deliveryHint');
-    const note = document.getElementById('deliveryNote');
-    const earliest = addBusinessDays(new Date(), 3);
-    const minDateStr = formatYMD(earliest);
-    delivery.min = minDateStr; delivery.value = minDateStr;
-    hint.textContent = 'Earliest recommended date (min 3 business days): ' + earliest.toLocaleDateString();
-    delivery.addEventListener('change', () => {
-      if(delivery.value && delivery.value < minDateStr){
-        note.style.display = 'block';
-        note.textContent = 'Please choose ' + earliest.toLocaleDateString() + ' or later to allow at least 3 business days.';
-      }else{ note.style.display = 'none'; note.textContent = ''; }
-    });
-    document.getElementById('supplyForm').addEventListener('submit', async function(e){
-      e.preventDefault();
-      const dept = document.getElementById('dept').value.trim();
-      const name = document.getElementById('name').value.trim();
-      const items = Array.from(document.querySelectorAll('input[name="item"]:checked')).map(i=>i.value);
-      const other = document.getElementById('other').value.trim();
-      const notes = document.getElementById('notes').value.trim();
-      const link = document.getElementById('link').value.trim();
-      const urgent = (document.querySelector('input[name="urgent"]:checked')||{}).value || 'No';
-      const deliveryVal = document.getElementById('delivery').value;
-      if(!dept){ alert('Please select your department.'); return; }
-      if(!name){ alert('Please enter your name.'); return; }
-      if(items.length === 0 && !other){ alert('Select at least one supply or add details in \"Other items\".'); return; }
-      if(!deliveryVal){ alert('Please choose a delivery by date.'); return; }
-      if(deliveryVal < delivery.min){ alert('Please choose ' + new Date(delivery.min).toLocaleDateString() + ' or later for delivery.'); return; }
-      if(link && !/^https?:\\//i.test(link)){ alert('Please enter a valid http(s) URL for the product link.'); return; }
-      try{ await fetch('/api/supplies', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ dept, name, items, other, notes, link, urgent, delivery: deliveryVal }) }); }catch(err){}
-      const to = 'tcrownover@concentra.com';
-      const subject = `Office Supplies Request - ${dept} - ${name} - ${deliveryVal}`;
-      const EOL = '\\r\\n';
-      let body = '';
-      body += `Department: ${dept}${EOL}`;
-      body += `Requestor: ${name}${EOL}`;
-      body += `Urgent: ${urgent}${EOL}`;
-      body += `Delivery by: ${new Date(deliveryVal).toLocaleDateString()}${EOL}`;
-      body += `${EOL}Selected items:${EOL}`;
-      body += items.length ? ('- ' + items.join(`${EOL}- `) + EOL) : `(none)${EOL}`;
-      if(other) body += `${EOL}Other items:${EOL}${other}${EOL}`;
-      if(notes) body += `${EOL}Quantity / notes:${EOL}${notes}${EOL}`;
-      if(link) body += `${EOL}Product link: ${link}${EOL}`;
-      body += `${EOL}Submitted from: ${location.href}${EOL}`;
-      body += `Submitted at: ${new Date().toLocaleString()}${EOL}`;
-      const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-      try{ window.location.href = mailto; }catch(err){ window.open(mailto, '_self'); }
-      setTimeout(()=>{ (e.target).reset(); delivery.value = delivery.min; alert('Your Outlook/new mail window should now be open with details prefilled.'); }, 150);
-    });
-  });
-})();
-</script>
+
+  <script>
+    (function(){
+      function addBusinessDays(fromDate, days){
+        const d = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
+        let added = 0; while(added < days){ d.setDate(d.getDate()+1); const wd=d.getDay(); if(wd!==0 && wd!==6) added++; }
+        return d;
+      }
+      function formatYMD(date){ const y=date.getFullYear(); const m=String(date.getMonth()+1).padStart(2,'0'); const da=String(date.getDate()).padStart(2,'0'); return `${y}-${m}-${da}`; }
+
+      document.addEventListener('DOMContentLoaded', function(){
+        const delivery = document.getElementById('delivery');
+        const hint = document.getElementById('deliveryHint');
+        const note = document.getElementById('deliveryNote');
+        const earliest = addBusinessDays(new Date(), 3);
+        const minDateStr = formatYMD(earliest);
+        delivery.min = minDateStr; delivery.value = minDateStr;
+        hint.textContent = 'Earliest recommended date (min 3 business days): ' + earliest.toLocaleDateString();
+        delivery.addEventListener('change', () => {
+          if(delivery.value && delivery.value < minDateStr){
+            note.style.display = 'block';
+            note.textContent = 'Please choose ' + earliest.toLocaleDateString() + ' or later to allow at least 3 business days.';
+          } else { note.style.display = 'none'; note.textContent = ''; }
+        });
+
+        document.getElementById('supplyForm').addEventListener('submit', function(e){
+          e.preventDefault();
+          const dept = document.getElementById('dept').value.trim();
+          const name = document.getElementById('name').value.trim();
+          const items = Array.from(document.querySelectorAll('input[name="item"]:checked')).map(i=>i.value);
+          const other = document.getElementById('other').value.trim();
+          const notes = document.getElementById('notes').value.trim();
+          const link = document.getElementById('link').value.trim();
+          const urgent = (document.querySelector('input[name="urgent"]:checked')||{}).value || 'No';
+          const deliveryVal = document.getElementById('delivery').value;
+          if(!dept){ alert('Please select your department.'); return; }
+          if(!name){ alert('Please enter your name.'); return; }
+          if(items.length === 0 && !other){ alert('Select at least one supply or add details in "Other items".'); return; }
+          if(!deliveryVal){ alert('Please choose a delivery by date.'); return; }
+          if(deliveryVal < delivery.min){ alert('Please choose ' + new Date(delivery.min).toLocaleDateString() + ' or later for delivery.'); return; }
+          if(link && !/^https?:\/\//i.test(link)){ alert('Please enter a valid http(s) URL for the product link.'); return; }
+
+          const to = 'tcrownover@concentra.com';
+          const subject = `Office Supplies Request - ${dept} - ${name} - ${deliveryVal}`;
+          const EOL = '\r\n';
+          let body = '';
+          body += `Department: ${dept}${EOL}`;
+          body += `Requestor: ${name}${EOL}`;
+          body += `Urgent: ${urgent}${EOL}`;
+          body += `Delivery by: ${new Date(deliveryVal).toLocaleDateString()}${EOL}`;
+          body += `${EOL}Selected items:${EOL}`;
+          body += items.length ? ('- ' + items.join(`${EOL}- `) + EOL) : `(none)${EOL}`;
+          if(other) body += `${EOL}Other items:${EOL}${other}${EOL}`;
+          if(notes) body += `${EOL}Quantity / notes:${EOL}${notes}${EOL}`;
+          if(link) body += `${EOL}Product link: ${link}${EOL}`;
+          body += `${EOL}Submitted from: ${location.href}${EOL}`;
+          body += `Submitted at: ${new Date().toLocaleString()}${EOL}`;
+          const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+          try{ window.location.href = mailto; }catch(err){ window.open(mailto, '_self'); }
+          setTimeout(()=>{ (e.target).reset(); delivery.value = delivery.min; alert('Your Outlook/new mail window should now be open with details prefilled.'); }, 200);
+        });
+      });
+    })();
+  </script>
 </body>
 </html>
