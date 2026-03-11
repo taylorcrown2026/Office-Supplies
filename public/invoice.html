@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+ <meta charset="utf-8" />
+ <meta name="viewport" content="width=device-width, initial-scale=1" />
+ <title>Upload Invoices</title>
+ <style>
+ :root{--brand:#0f6cbd;--ink:#1a1a1a;--muted:#666;--bg:#f7f7f7;--card:#fff;--danger:#b91c1c}
+ *{box-sizing:border-box}
+ body{margin:0;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+ header{background:#fff;border-bottom:1px solid #e5e5e5;position:sticky;top:0;z-index:10}
+ nav{max-width:980px;margin:0 auto;padding:12px 16px;display:flex;gap:12px;align-items:center;justify-content:space-between}
+ nav .left, nav .right{display:flex;gap:12px;align-items:center}
+ a{color:var(--brand);text-decoration:none}
+ a:hover{text-decoration:underline}
+ main{max-width:980px;margin:24px auto;padding:0 16px}
+ .card{background:var(--card);border:1px solid #e5e5e5;border-radius:10px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+ form .row{display:grid;grid-template-columns:1fr 2fr;gap:12px;align-items:center;margin:10px 0}
+ label{font-weight:600}
+ input[type=text], select{width:100%;padding:10px;border:1px solid #d0d7de;border-radius:8px;background:#fff}
+ input[type=file]{display:block}
+ .actions{display:flex;gap:12px;margin-top:16px}
+ .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid #d0d7de;background:#fff;color:var(--ink);padding:10px 14px;border-radius:8px;cursor:pointer}
+ .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+ .hint{color:var(--muted);font-size:13px}
+ </style>
+</head>
+<body>
+ <header>
+  <nav>
+   <div class="left">
+    <a href="index.html">Home</a>
+    <strong>•</strong>
+    <span>Upload Invoices</span>
+   </div>
+   <div class="right">
+    <a id="authCta" href="login.html" data-public>Sign in</a>
+   </div>
+  </nav>
+ </header>
+ <main>
+  <h1>Upload Invoices</h1>
+  <p class="lead">Choose a file to upload, then we'll open a pre‑filled email to <strong>tcrownover@concentra.com</strong>.</p>
+  <div class="card">
+   <form id="invoiceForm" novalidate>
+    <div class="row">
+     <label for="name">Your name <span aria-hidden="true" style="color:var(--danger)">*</span></label>
+     <input id="name" type="text" autocomplete="name" placeholder="First Last" required />
+    </div>
+    <div class="row">
+     <label for="vendor">Vendor <span aria-hidden="true" style="color:var(--danger)">*</span></label>
+     <input id="vendor" type="text" placeholder="Vendor name" required />
+    </div>
+    <div class="row">
+     <label for="dept">Department <span aria-hidden="true" style="color:var(--danger)">*</span></label>
+     <select id="dept" required>
+      <option value="" selected disabled>Select your department</option>
+      <option>HR Services (Deidre Debruin)</option>
+      <option>HR Leadership (Danielle Kendall)</option>
+      <option>Internal Communications & Knowledge Management (Michelle Tandoc)</option>
+      <option>Learning & Leadership Development (Amy Kidder)</option>
+      <option>Payroll & Benefits (Pamela Ashworth)</option>
+      <option>Talent Acquisition (Samantha Oakley)</option>
+     </select>
+    </div>
+    <div class="row">
+     <label for="file">Invoice file <span aria-hidden="true" style="color:var(--danger)">*</span></label>
+     <div>
+      <input id="file" name="file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" required />
+      <div class="hint">Max 15 MB. Supported: PDF, Word, Excel, PNG, JPG.</div>
+     </div>
+    </div>
+    <div class="actions">
+     <button type="submit" class="btn primary">Submit</button>
+     <button type="reset" class="btn">Reset</button>
+     <a class="btn" href="index.html">Home</a>
+    </div>
+   </form>
+  </div>
+ </main>
+<script src="/config.js"></script>
+<script src="/auth.js"></script>
+ <script>
+ document.addEventListener('DOMContentLoaded', async function(){
+  if(!await Auth.ensureAuthenticated()) return;
+  document.getElementById('invoiceForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+    const name = document.getElementById('name').value.trim();
+    const vendor = document.getElementById('vendor').value.trim();
+    const dept = document.getElementById('dept').value.trim();
+    const fileInput = document.getElementById('file');
+    if(!name){ alert('Please enter your name.'); return; }
+    if(!vendor){ alert('Please enter the vendor.'); return; }
+    if(!dept){ alert('Please select your department.'); return; }
+    if(!fileInput.files || fileInput.files.length === 0){ alert('Please choose a file to upload.'); return; }
+
+    // 1) Upload file
+    const fd = new FormData();
+    fd.append('file', fileInput.files[0]);
+    let uploaded;
+    try{
+      const r = await fetch('/upload', { method:'POST', body: fd, credentials:'same-origin' });
+      const j = await r.json();
+      if(!r.ok || !j.ok) throw new Error('Upload failed');
+      uploaded = j.file; // {name,size}
+    }catch(err){ alert('Upload failed. Please try again.'); return; }
+
+    // 2) Record submission (JSON storage)
+    try{
+      await fetch('/api/invoices', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ name, vendor, dept, file: uploaded.name })
+      });
+    }catch(err){ /* non-fatal for user */ }
+
+    // 3) Open Outlook email
+    const to = 'tcrownover@concentra.com';
+    const subject = `Invoice Submission - ${vendor} - ${dept} - ${name}`;
+    const EOL = '\r\n';
+    let body = '';
+    body += `Requestor: ${name}${EOL}`;
+    body += `Vendor: ${vendor}${EOL}`;
+    body += `Department: ${dept}${EOL}`;
+    body += `${EOL}Uploaded file:${EOL}${uploaded.name} (${(uploaded.size/1024).toFixed(1)} KB)${EOL}`;
+    body += `${EOL}Submitted from: ${location.href}${EOL}`;
+    body += `Submitted at: ${new Date().toLocaleString()}${EOL}`;
+    const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    try{ window.location.href = mailto; }catch(err){ window.open(mailto, '_self'); }
+    setTimeout(()=>{ (e.target).reset(); alert('Your Outlook/new mail window should now be open with details prefilled.'); }, 150);
+  });
+ });
+ </script>
+</body>
+</html>
